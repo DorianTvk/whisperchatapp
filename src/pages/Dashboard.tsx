@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ChatSidebar from "@/components/ChatSidebar";
 import { useAuth } from "@/context/auth-context";
 import { Link } from "react-router-dom";
-import { MessageSquare, Users, Plus, Search, Pin, Calendar, Video } from "lucide-react";
+import { MessageSquare, Users, Plus, Search, Pin, Calendar, Video, UserPlus } from "lucide-react";
 
 // Mock data
 const recentChats = [
