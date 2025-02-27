@@ -176,6 +176,7 @@ export default function GroupChat() {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [showMembers, setShowMembers] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const group = MOCK_GROUPS[groupId as keyof typeof MOCK_GROUPS];
@@ -211,4 +212,216 @@ export default function GroupChat() {
       senderName: user.username,
       senderAvatar: user.avatar,
       content,
-      timestamp: new Date().
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      isOwnMessage: true,
+    };
+    
+    setMessages((prev) => [...prev, newMessage]);
+    setReplyTo(null);
+  };
+
+  const handleReply = (message: Message) => {
+    setReplyTo(message);
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+  };
+
+  if (!group) return null;
+
+  return (
+    <div className="flex h-screen bg-background/50">
+      {/* Sidebar */}
+      <div className="w-72 hidden md:block">
+        <ChatSidebar />
+      </div>
+
+      {/* Chat Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Chat Header */}
+        <header className="px-4 py-3 border-b border-border/50 glass flex items-center justify-between">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="mr-2 md:hidden" 
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            
+            <div className="flex items-center">
+              <Avatar className="h-9 w-9">
+                <AvatarImage src={group.avatar} alt={group.name} />
+                <AvatarFallback>{group.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              
+              <div className="ml-3">
+                <h2 className="font-medium text-sm">{group.name}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {group.members.length} members
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-1">
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Phone className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Video className="h-4 w-4" />
+            </Button>
+            
+            <Sheet open={showMembers} onOpenChange={setShowMembers}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Users className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Group Members</SheetTitle>
+                </SheetHeader>
+                <div className="py-4">
+                  <div className="text-sm text-muted-foreground mb-4">
+                    {group.members.length} members
+                  </div>
+                  <ScrollArea className="h-[calc(100vh-180px)]">
+                    <div className="space-y-4">
+                      {group.members.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Avatar className="h-8 w-8 mr-3">
+                              <AvatarImage src={member.avatar} alt={member.name} />
+                              <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h4 className="text-sm font-medium">{member.name}</h4>
+                              <p className="text-xs text-muted-foreground capitalize">
+                                {member.role}
+                              </p>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="sm">
+                            Message
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </SheetContent>
+            </Sheet>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuItem>
+                  <Info className="h-4 w-4 mr-2" />
+                  Group info
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowMembers(true)}>
+                  <Users className="h-4 w-4 mr-2" />
+                  See all members
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Search className="h-4 w-4 mr-2" />
+                  Search in conversation
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <BellOff className="h-4 w-4 mr-2" />
+                  Mute notifications
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add members
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuSubContent className="w-[200px]">
+                      <div className="px-2 py-1.5 text-sm">
+                        Select a contact to add
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>
+                        <Avatar className="h-5 w-5 mr-2">
+                          <AvatarFallback>JD</AvatarFallback>
+                        </Avatar>
+                        John Doe
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Avatar className="h-5 w-5 mr-2">
+                          <AvatarFallback>AS</AvatarFallback>
+                        </Avatar>
+                        Alice Smith
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                  <Trash className="h-4 w-4 mr-2" />
+                  Leave group
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+
+        {/* Messages Area */}
+        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+          <div className="space-y-6 pb-4">
+            {messages.map((message, index) => (
+              <ChatMessage 
+                key={message.id} 
+                message={message} 
+                onReply={handleReply}
+                onDelete={handleDeleteMessage}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+
+        {/* Reply Indicator */}
+        {replyTo && (
+          <div className="px-4 py-2 border-t border-border/50 bg-background/80 animate-slide-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-1 h-6 bg-primary/50 rounded-full mr-2" />
+                <div>
+                  <span className="text-xs font-medium">
+                    Replying to {replyTo.isOwnMessage ? "yourself" : replyTo.senderName}
+                  </span>
+                  <p className="text-xs text-muted-foreground truncate max-w-xs">
+                    {replyTo.content}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 rounded-full"
+                onClick={() => setReplyTo(null)}
+              >
+                <Trash className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Message Input */}
+        <MessageInput onSendMessage={handleSendMessage} />
+      </div>
+    </div>
+  );
+}
