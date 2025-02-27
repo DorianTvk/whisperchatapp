@@ -1,38 +1,81 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import ChatSidebar from "@/components/ChatSidebar";
-import { ArrowLeft, User, Shield, Bell, LogOut, KeyRound, Trash, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ArrowLeft, User, Shield, Bell, LogOut, KeyRound, Trash, Save, Loader2, Camera, Check } from "lucide-react";
+
+// Default avatar options
+const AVATAR_OPTIONS = [
+  "https://images.unsplash.com/photo-1649972904349-6e44c42644a7",
+  "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
+  "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952",
+  "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1",
+  "https://images.unsplash.com/photo-1582562124811-c09040d0a901"
+];
 
 export default function Profile() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, updateAvatar } = useAuth();
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState("");
+  const [isAvatarLoading, setIsAvatarLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     username: user?.username || "",
     email: user?.email || "",
-    bio: "Product designer and developer based in Stockholm.",
-    notifications: true,
-    darkMode: false,
+    bio: user?.bio || "Product designer and developer based in Stockholm.",
+    notificationSettings: {
+      directMessages: true,
+      groupChats: true,
+      mentions: true
+    }
   });
 
+  // Update form data when user changes
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        username: user.username,
+        email: user.email,
+        bio: user.bio || prev.bio
+      }));
+    }
+  }, [user]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
+    const { name, value } = e.target;
+    setFormData(prev => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: value
+    }));
+  };
+
+  const handleNotificationChange = (key: keyof typeof formData.notificationSettings, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      notificationSettings: {
+        ...prev.notificationSettings,
+        [key]: checked
+      }
     }));
   };
 
@@ -42,6 +85,7 @@ export default function Profile() {
       // Update user profile
       await updateProfile({
         username: formData.username,
+        bio: formData.bio // Add bio to the update
       });
       
       setIsEditing(false);
@@ -50,6 +94,7 @@ export default function Profile() {
         description: "Your profile has been successfully updated",
       });
     } catch (error) {
+      console.error("Profile update error:", error);
       toast({
         variant: "destructive",
         title: "Update failed",
@@ -57,6 +102,61 @@ export default function Profile() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    setIsSaving(true);
+    try {
+      // In a real app, we would save notification preferences to the server
+      // For this demo, we'll just show a success message
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      toast({
+        title: "Preferences saved",
+        description: "Your notification preferences have been updated",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: "There was an error updating your preferences",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAvatarChange = async () => {
+    if (!selectedAvatar && !customAvatarUrl) {
+      toast({
+        variant: "destructive",
+        title: "No avatar selected",
+        description: "Please select an avatar or enter a custom URL",
+      });
+      return;
+    }
+
+    setIsAvatarLoading(true);
+    try {
+      const newAvatar = customAvatarUrl || selectedAvatar || user?.avatar;
+      if (newAvatar) {
+        await updateAvatar(newAvatar);
+        toast({
+          title: "Avatar updated",
+          description: "Your profile picture has been updated"
+        });
+        setShowAvatarDialog(false);
+      }
+    } catch (error) {
+      console.error("Avatar update error:", error);
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: "There was an error updating your avatar",
+      });
+    } finally {
+      setIsAvatarLoading(false);
     }
   };
 
@@ -68,6 +168,18 @@ export default function Profile() {
       description: "You have been successfully logged out",
     });
   };
+
+  const handleDeleteAccount = () => {
+    // In a real app, this would make an API call to delete the account
+    logout();
+    navigate("/login");
+    toast({
+      title: "Account deleted",
+      description: "Your account has been permanently deleted",
+    });
+  };
+
+  if (!user) return null;
 
   return (
     <div className="flex h-screen bg-background/50">
@@ -119,16 +231,29 @@ export default function Profile() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <Avatar className="h-20 w-20">
-                        <AvatarImage src={user?.avatar} alt={user?.username} />
-                        <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
-                      </Avatar>
+                      <div className="relative group cursor-pointer" onClick={() => isEditing && setShowAvatarDialog(true)}>
+                        <Avatar className="h-20 w-20">
+                          <AvatarImage src={user.avatar} alt={user.username} />
+                          <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        {isEditing && (
+                          <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera className="h-5 w-5 text-white" />
+                          </div>
+                        )}
+                      </div>
                       <div className="space-y-1.5">
-                        <h3 className="font-medium">{user?.username}</h3>
-                        <p className="text-sm text-muted-foreground">{user?.email}</p>
-                        <Button variant="outline" size="sm" disabled={!isEditing}>
-                          Change Avatar
-                        </Button>
+                        <h3 className="font-medium">{user.username}</h3>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                        {isEditing && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setShowAvatarDialog(true)}
+                          >
+                            Change Avatar
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -183,7 +308,10 @@ export default function Profile() {
                         </Button>
                         <Button onClick={handleSaveProfile} disabled={isSaving}>
                           {isSaving ? (
-                            <>Saving...</>
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
                           ) : (
                             <>
                               <Save className="mr-2 h-4 w-4" /> Save Changes
@@ -214,7 +342,11 @@ export default function Profile() {
                           Permanently delete your account and all your data.
                         </p>
                       </div>
-                      <Button variant="destructive" size="sm">
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => setShowDeleteAlert(true)}
+                      >
                         <Trash className="mr-2 h-4 w-4" /> Delete
                       </Button>
                     </div>
@@ -312,13 +444,12 @@ export default function Profile() {
                           Get notified when you receive a direct message
                         </span>
                       </Label>
-                      <input
-                        type="checkbox"
+                      <Switch
                         id="direct-messages"
-                        name="notifications"
-                        className="toggle"
-                        checked={formData.notifications}
-                        onChange={handleChange}
+                        checked={formData.notificationSettings.directMessages}
+                        onCheckedChange={(checked) => 
+                          handleNotificationChange('directMessages', checked)
+                        }
                       />
                     </div>
                     <Separator />
@@ -329,12 +460,12 @@ export default function Profile() {
                           Get notified about activity in group chats
                         </span>
                       </Label>
-                      <input
-                        type="checkbox"
+                      <Switch
                         id="group-messages"
-                        className="toggle"
-                        checked={formData.notifications}
-                        onChange={handleChange}
+                        checked={formData.notificationSettings.groupChats}
+                        onCheckedChange={(checked) => 
+                          handleNotificationChange('groupChats', checked)
+                        }
                       />
                     </div>
                     <Separator />
@@ -345,17 +476,26 @@ export default function Profile() {
                           Get notified when you're mentioned
                         </span>
                       </Label>
-                      <input
-                        type="checkbox"
+                      <Switch
                         id="mentions"
-                        className="toggle"
-                        checked={formData.notifications}
-                        onChange={handleChange}
+                        checked={formData.notificationSettings.mentions}
+                        onCheckedChange={(checked) => 
+                          handleNotificationChange('mentions', checked)
+                        }
                       />
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button>Save Preferences</Button>
+                    <Button onClick={handleSaveNotifications} disabled={isSaving}>
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Preferences"
+                      )}
+                    </Button>
                   </CardFooter>
                 </Card>
               </TabsContent>
@@ -363,6 +503,91 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Delete Account Alert Dialog */}
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete your account and all associated data.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Avatar Change Dialog */}
+      <Dialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change Avatar</DialogTitle>
+            <DialogDescription>
+              Choose from our gallery or enter a custom URL.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <Label>Choose an avatar</Label>
+            <div className="grid grid-cols-3 gap-4">
+              {AVATAR_OPTIONS.map((url) => (
+                <div 
+                  key={url} 
+                  className={`relative rounded-lg overflow-hidden cursor-pointer border-2 ${
+                    selectedAvatar === url ? "border-primary" : "border-transparent"
+                  }`}
+                  onClick={() => {
+                    setSelectedAvatar(url);
+                    setCustomAvatarUrl("");
+                  }}
+                >
+                  <img src={url} alt="Avatar option" className="w-full h-auto aspect-square object-cover" />
+                  {selectedAvatar === url && (
+                    <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5">
+                      <Check className="h-3 w-3 text-primary-foreground" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="grid gap-2 mt-2">
+              <Label htmlFor="custom-url">Or enter a custom URL</Label>
+              <Input
+                id="custom-url"
+                placeholder="https://example.com/avatar.jpg"
+                value={customAvatarUrl}
+                onChange={(e) => {
+                  setCustomAvatarUrl(e.target.value);
+                  setSelectedAvatar(null);
+                }}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAvatarDialog(false)} disabled={isAvatarLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleAvatarChange} disabled={isAvatarLoading}>
+              {isAvatarLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
