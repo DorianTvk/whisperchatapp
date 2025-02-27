@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://chathaven-babble.lovable.app/dashboard
+**URL**: https://whisperchatting.netlify.app/
 
 ## What technologies are used for this project?
 
