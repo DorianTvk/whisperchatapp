@@ -1,12 +1,17 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
+export type UserStatus = "online" | "away" | "busy" | "offline";
+
 export interface User {
   id: string;
   username: string;
   email: string;
   avatar: string;
+  status: UserStatus;
+  statusMessage?: string;
+  bio?: string;
   createdAt: string;
-  friends?: string[];
+  friends: string[];
 }
 
 export interface Contact {
@@ -14,7 +19,8 @@ export interface Contact {
   name: string;
   email: string;
   avatar: string;
-  status: "online" | "offline" | "away";
+  status: UserStatus;
+  statusMessage?: string;
   lastActive: string;
 }
 
@@ -39,6 +45,7 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   updateAvatar: (avatarUrl: string) => Promise<void>;
+  updateStatus: (status: UserStatus, message?: string) => Promise<void>;
   addContact: (email: string) => Promise<Contact>;
   removeContact: (contactId: string) => Promise<void>;
   createGroup: (name: string, members: string[]) => Promise<ChatGroup>;
@@ -146,6 +153,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         username: existingContact?.name || email.split('@')[0],
         email,
         avatar: existingContact?.avatar || getRandomAvatar(),
+        status: "online",
+        statusMessage: "Available",
+        bio: "Hi there! I'm using Whisper.",
         createdAt: new Date().toISOString(),
         friends: ["user_1", "user_2", "user_3", "user_4"]
       };
@@ -173,6 +183,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         username,
         email,
         avatar,
+        status: "online",
+        statusMessage: "Available",
+        bio: "Hi there! I'm using Whisper.",
         createdAt: new Date().toISOString(),
         friends: [] // New users start with no friends
       };
@@ -183,6 +196,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         avatar,
         status: "online",
+        statusMessage: "Available",
         lastActive: "Now"
       };
       
@@ -253,6 +267,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       console.error("Avatar update failed:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateStatus = async (status: UserStatus, message?: string) => {
+    setIsLoading(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      if (user) {
+        const updatedUser = { ...user, status, statusMessage: message };
+        setUser(updatedUser);
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.error("Status update failed:", error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -441,6 +473,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         logout,
         updateProfile,
         updateAvatar,
+        updateStatus,
         addContact,
         removeContact,
         createGroup,

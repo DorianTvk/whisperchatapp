@@ -9,7 +9,8 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { MoreVertical, Reply, Copy, Bookmark, Trash } from "lucide-react";
+import { MoreVertical, Reply, Copy, Bookmark, Trash, UserCircle2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export interface Message {
   id: string;
@@ -20,22 +21,39 @@ export interface Message {
   timestamp: string;
   isRead: boolean;
   isOwnMessage?: boolean;
+  replyTo?: {
+    id: string;
+    senderName: string;
+    content: string;
+  };
 }
 
 interface ChatMessageProps {
   message: Message;
   onReply?: (message: Message) => void;
   onDelete?: (messageId: string) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
-export default function ChatMessage({ message, onReply, onDelete }: ChatMessageProps) {
+export default function ChatMessage({ message, onReply, onDelete, onViewProfile }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const navigate = useNavigate();
   
   const formattedTime = format(new Date(message.timestamp), "h:mm a");
   const formattedDate = format(new Date(message.timestamp), "MMM d");
   const isToday = format(new Date(message.timestamp), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
   
   const displayTime = isToday ? formattedTime : `${formattedDate}, ${formattedTime}`;
+
+  const handleViewProfile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onViewProfile) {
+      onViewProfile(message.senderId);
+    } else {
+      navigate(`/profile/${message.senderId}`);
+    }
+  };
   
   return (
     <div 
@@ -43,16 +61,32 @@ export default function ChatMessage({ message, onReply, onDelete }: ChatMessageP
         message.isOwnMessage ? "flex-row-reverse ml-auto" : ""
       }`}
       onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      onMouseLeave={() => !isDropdownOpen && setShowActions(false)}
     >
-      <Avatar className="h-8 w-8 mt-1">
-        <AvatarImage src={message.senderAvatar} alt={message.senderName} />
-        <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
-      </Avatar>
+      <div className="cursor-pointer" onClick={handleViewProfile}>
+        <Avatar className="h-8 w-8 mt-1">
+          <AvatarImage src={message.senderAvatar} alt={message.senderName} />
+          <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
+        </Avatar>
+      </div>
       
       <div className={`flex flex-col max-w-[80%] ${message.isOwnMessage ? "items-end" : "items-start"}`}>
         {!message.isOwnMessage && (
           <span className="text-xs font-medium mb-1">{message.senderName}</span>
+        )}
+        
+        {/* Reply reference */}
+        {message.replyTo && (
+          <div 
+            className={`flex items-center px-3 py-1.5 mb-1 rounded-md text-xs ${
+              message.isOwnMessage 
+                ? "bg-primary/10 text-primary" 
+                : "bg-accent/50 text-accent-foreground"
+            }`}
+          >
+            <span className="font-medium mr-1">↪ {message.replyTo.senderName}:</span>
+            <span className="truncate max-w-[180px]">{message.replyTo.content}</span>
+          </div>
         )}
         
         <div className="flex items-end gap-2">
@@ -101,8 +135,8 @@ export default function ChatMessage({ message, onReply, onDelete }: ChatMessageP
           )}
           
           {showActions && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -123,6 +157,10 @@ export default function ChatMessage({ message, onReply, onDelete }: ChatMessageP
                 <DropdownMenuItem>
                   <Bookmark className="h-4 w-4 mr-2" />
                   Save message
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleViewProfile}>
+                  <UserCircle2 className="h-4 w-4 mr-2" />
+                  View Profile
                 </DropdownMenuItem>
                 {message.isOwnMessage && (
                   <DropdownMenuItem 

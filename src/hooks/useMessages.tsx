@@ -13,6 +13,11 @@ export interface ChatMessage {
   timestamp: string;
   isRead: boolean;
   isOwnMessage?: boolean;
+  replyTo?: {
+    id: string;
+    senderName: string;
+    content: string;
+  };
 }
 
 // Chat storage keys
@@ -46,7 +51,7 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
   }, [chatId, isGroup]);
 
   // Send a message
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, replyToMessage?: ChatMessage) => {
     if (!user || !chatId || !content.trim()) return null;
     
     // Create new message
@@ -61,6 +66,15 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
       isRead: false,
       isOwnMessage: true
     };
+    
+    // Add reply information if replying to a message
+    if (replyToMessage) {
+      newMessage.replyTo = {
+        id: replyToMessage.id,
+        senderName: replyToMessage.senderName,
+        content: replyToMessage.content
+      };
+    }
     
     // Update messages in state
     const updatedMessages = [...messages, newMessage];
@@ -127,6 +141,9 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
         const allMessages = JSON.parse(storedMessages) as Record<string, ChatMessage[]>;
         delete allMessages[chatId];
         localStorage.setItem(storageKey, JSON.stringify(allMessages));
+        
+        // Clear messages in state
+        setMessages([]);
         
         toast({
           title: "Chat deleted",
