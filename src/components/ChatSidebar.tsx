@@ -1,80 +1,152 @@
 
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "@/context/auth-context";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModeToggle } from "@/components/mode-toggle";
 import {
-  MessageSquare,
-  Users,
-  UserPlus,
-  LogOut,
-  Search,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import AddContactDialog from "@/components/AddContactDialog";
+import CreateGroupDialog from "@/components/CreateGroupDialog";
+import { useAuth } from "@/context/auth-context";
+import { 
+  Settings, 
+  LogOut, 
+  Search, 
+  MessageSquare, 
+  Users, 
+  UserPlus, 
   Plus,
-  User,
-  Settings,
+  Trash,
+  MoreVertical
 } from "lucide-react";
-
-// Mock data
-const MOCK_DIRECT_CHATS = [
-  { id: "user_1", name: "Alex Johnson", avatar: "/placeholder.svg", lastMessage: "Hey there!", unread: 2 },
-  { id: "user_2", name: "Maria Garcia", avatar: "/placeholder.svg", lastMessage: "Let's meet tomorrow" },
-  { id: "user_3", name: "James Smith", avatar: "/placeholder.svg", lastMessage: "Thanks for the help!" },
-  { id: "user_4", name: "Emma Wilson", avatar: "/placeholder.svg", lastMessage: "Did you see the new design?" },
-];
-
-const MOCK_GROUP_CHATS = [
-  { id: "group_1", name: "Design Team", avatar: "/placeholder.svg", lastMessage: "Meeting at 2pm", members: 8 },
-  { id: "group_2", name: "Project Alpha", avatar: "/placeholder.svg", lastMessage: "Let's finalize the mockups", members: 5 },
-  { id: "group_3", name: "Friends", avatar: "/placeholder.svg", lastMessage: "Who's up for dinner?", members: 12 },
-];
 
 export default function ChatSidebar() {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { user, contacts, groups, logout, removeContact } = useAuth();
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredDirectChats, setFilteredDirectChats] = useState(MOCK_DIRECT_CHATS);
-  const [filteredGroupChats, setFilteredGroupChats] = useState(MOCK_GROUP_CHATS);
+  const [filteredContacts, setFilteredContacts] = useState(contacts);
+  const [filteredGroups, setFilteredGroups] = useState(groups);
+  const [currentTab, setCurrentTab] = useState("chats");
 
   useEffect(() => {
+    // Filter contacts and groups based on search query
     if (searchQuery) {
-      setFilteredDirectChats(
-        MOCK_DIRECT_CHATS.filter((chat) =>
-          chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+      setFilteredContacts(
+        contacts.filter((contact) =>
+          contact.name.toLowerCase().includes(searchQuery.toLowerCase())
         )
       );
-      setFilteredGroupChats(
-        MOCK_GROUP_CHATS.filter((chat) =>
-          chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+      setFilteredGroups(
+        groups.filter((group) =>
+          group.name.toLowerCase().includes(searchQuery.toLowerCase())
         )
       );
     } else {
-      setFilteredDirectChats(MOCK_DIRECT_CHATS);
-      setFilteredGroupChats(MOCK_GROUP_CHATS);
+      setFilteredContacts(contacts);
+      setFilteredGroups(groups);
     }
-  }, [searchQuery]);
+  }, [searchQuery, contacts, groups]);
+
+  // Determine if we're in a chat page
+  const isInChatPage = location.pathname.includes('/chat/') || location.pathname.includes('/group/');
+  
+  // Auto-select the appropriate tab based on current route
+  useEffect(() => {
+    if (location.pathname.includes('/chat/')) {
+      setCurrentTab("chats");
+    } else if (location.pathname.includes('/group/')) {
+      setCurrentTab("groups");
+    }
+  }, [location.pathname]);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const handleDeleteContact = async (contactId: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation
+    e.stopPropagation(); // Prevent click from bubbling
+    
+    try {
+      await removeContact(contactId);
+      // If we're on the page of the contact being deleted, navigate to dashboard
+      if (location.pathname === `/chat/${contactId}`) {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Failed to delete contact:", error);
+    }
+  };
+
+  // Function to refresh the contact and group lists
+  const refreshLists = () => {
+    setSearchQuery(""); // Reset search to show all contacts/groups
+  };
 
   return (
-    <div className="flex flex-col h-full border-r border-border/50 glass">
-      {/* Sidebar Header */}
-      <div className="p-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          <h2 className="font-semibold text-lg">Whisper</h2>
+    <div className="h-screen flex flex-col border-r border-border/50 glass">
+      {/* Header */}
+      <div className="p-4 border-b border-border/50">
+        <div className="flex items-center justify-between">
+          <Link to="/dashboard">
+            <h1 className="text-xl font-bold">Whisper</h1>
+          </Link>
+          <div className="flex items-center space-x-1">
+            <ModeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatar} alt={user?.username} />
+                    <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <div className="flex items-center justify-start p-2">
+                  <div className="flex flex-col space-y-1 leading-none">
+                    {user && (
+                      <>
+                        <p className="font-medium">{user.username}</p>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/profile">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <ModeToggle />
-      </div>
-      
-      {/* Search */}
-      <div className="px-4 pb-2">
-        <div className="relative">
+
+        {/* Search */}
+        <div className="relative mt-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search conversations..."
+            placeholder="Search..."
             className="pl-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -82,111 +154,185 @@ export default function ChatSidebar() {
         </div>
       </div>
 
-      {/* Chats */}
-      <ScrollArea className="flex-1 px-4">
-        <div className="py-2">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="text-sm font-medium text-muted-foreground">Direct Messages</h3>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <UserPlus className="h-4 w-4" />
-            </Button>
+      {/* Tabs */}
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="grid grid-cols-2 m-2">
+          <TabsTrigger value="chats">
+            <MessageSquare className="h-4 w-4 mr-2" /> Chats
+          </TabsTrigger>
+          <TabsTrigger value="groups">
+            <Users className="h-4 w-4 mr-2" /> Groups
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chats" className="flex-1 overflow-hidden flex flex-col">
+          <div className="px-2 py-1 flex items-center justify-between">
+            <h2 className="text-sm font-medium">Direct Messages</h2>
+            <AddContactDialog 
+              trigger={
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              }
+              onContactAdded={refreshLists}
+            />
           </div>
-          
-          <div className="space-y-1">
-            {filteredDirectChats.map((chat) => (
-              <Button
-                key={chat.id}
-                variant="ghost"
-                className={`w-full justify-start px-2 py-6 h-auto relative ${
-                  location.pathname === `/chat/${chat.id}` ? "bg-accent" : ""
-                }`}
-                asChild
-              >
-                <Link to={`/chat/${chat.id}`}>
-                  <Avatar className="h-8 w-8 mr-3">
-                    <AvatarImage src={chat.avatar} alt={chat.name} />
-                    <AvatarFallback>{chat.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start text-left overflow-hidden">
-                    <span className="font-medium text-sm truncate w-full">{chat.name}</span>
-                    <span className="text-xs text-muted-foreground truncate w-full">
-                      {chat.lastMessage}
-                    </span>
-                  </div>
-                  {chat.unread && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs">
-                      {chat.unread}
-                    </div>
+          <ScrollArea className="flex-1 px-2">
+            <div className="space-y-1 py-1">
+              {filteredContacts.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground">No contacts found</p>
+                  {searchQuery && (
+                    <Button 
+                      variant="link" 
+                      className="text-xs p-0 h-auto" 
+                      onClick={() => setSearchQuery("")}
+                    >
+                      Clear search
+                    </Button>
                   )}
-                </Link>
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <Separator className="my-2" />
-
-        <div className="py-2">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="text-sm font-medium text-muted-foreground">Groups</h3>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          <div className="space-y-1">
-            {filteredGroupChats.map((group) => (
-              <Button
-                key={group.id}
-                variant="ghost"
-                className={`w-full justify-start px-2 py-6 h-auto ${
-                  location.pathname === `/group/${group.id}` ? "bg-accent" : ""
-                }`}
-                asChild
-              >
-                <Link to={`/group/${group.id}`}>
-                  <Avatar className="h-8 w-8 mr-3">
-                    <AvatarImage src={group.avatar} alt={group.name} />
-                    <AvatarFallback>{group.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start text-left overflow-hidden">
+                </div>
+              ) : (
+                filteredContacts.map((contact) => (
+                  <Link 
+                    key={contact.id} 
+                    to={`/chat/${contact.id}`}
+                    className={`flex items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
+                      location.pathname === `/chat/${contact.id}` 
+                        ? "bg-muted" 
+                        : "hover:bg-muted/50"
+                    }`}
+                  >
                     <div className="flex items-center">
-                      <span className="font-medium text-sm truncate">{group.name}</span>
-                      <span className="ml-1 text-xs text-muted-foreground">({group.members})</span>
+                      <div className="relative">
+                        <Avatar className="h-8 w-8 mr-2">
+                          <AvatarImage src={contact.avatar} alt={contact.name} />
+                          <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span 
+                          className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                            contact.status === "online" ? "bg-green-500" : 
+                            contact.status === "away" ? "bg-yellow-500" : "bg-muted"
+                          }`}
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <h3 className="text-sm font-medium">{contact.name}</h3>
+                        <p className="text-xs text-muted-foreground truncate w-28">
+                          {contact.status === "online" ? "Online" : `Last seen ${contact.lastActive}`}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-xs text-muted-foreground truncate w-full">
-                      {group.lastMessage}
-                    </span>
-                  </div>
-                </Link>
-              </Button>
-            ))}
-          </div>
-        </div>
-      </ScrollArea>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 hover:opacity-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" side="right">
+                        <DropdownMenuItem 
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => handleDeleteContact(contact.id, e)}
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          Remove Contact
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </Link>
+                ))
+              )}
 
-      {/* Profile Section */}
-      <div className="p-4 border-t border-border/50 flex items-center justify-between">
-        <Button variant="ghost" className="flex items-center px-2" asChild>
-          <Link to="/profile">
-            <Avatar className="h-8 w-8 mr-2">
-              <AvatarImage src={user?.avatar} alt={user?.username} />
-              <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <span className="font-medium text-sm">{user?.username}</span>
-          </Link>
-        </Button>
-        <div className="flex items-center">
-          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+              {!searchQuery && (
+                <div className="pt-2">
+                  <AddContactDialog onContactAdded={refreshLists} />
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="groups" className="flex-1 overflow-hidden flex flex-col">
+          <div className="px-2 py-1 flex items-center justify-between">
+            <h2 className="text-sm font-medium">Group Chats</h2>
+            <CreateGroupDialog 
+              trigger={
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              }
+              onGroupCreated={refreshLists}
+            />
+          </div>
+          <ScrollArea className="flex-1 px-2">
+            <div className="space-y-1 py-1">
+              {filteredGroups.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground">No groups found</p>
+                  {searchQuery && (
+                    <Button 
+                      variant="link" 
+                      className="text-xs p-0 h-auto" 
+                      onClick={() => setSearchQuery("")}
+                    >
+                      Clear search
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                filteredGroups.map((group) => (
+                  <Link 
+                    key={group.id} 
+                    to={`/group/${group.id}`}
+                    className={`flex items-center rounded-md px-2 py-1.5 transition-colors ${
+                      location.pathname === `/group/${group.id}` 
+                        ? "bg-muted" 
+                        : "hover:bg-muted/50"
+                    }`}
+                  >
+                    <Avatar className="h-8 w-8 mr-2">
+                      <AvatarImage src={group.avatar} alt={group.name} />
+                      <AvatarFallback>{group.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-0.5">
+                      <h3 className="text-sm font-medium">{group.name}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {group.members.length} members
+                      </p>
+                    </div>
+                  </Link>
+                ))
+              )}
+
+              {!searchQuery && (
+                <div className="pt-2">
+                  <CreateGroupDialog onGroupCreated={refreshLists} />
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+
+      {/* Bottom Section - only shown when not in a chat page on mobile */}
+      {!isInChatPage && (
+        <>
+          <Separator />
+          <div className="p-4">
             <Link to="/profile">
-              <Settings className="h-4 w-4" />
+              <Button variant="outline" className="w-full">
+                <Settings className="mr-2 h-4 w-4" />
+                Profile Settings
+              </Button>
             </Link>
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={logout}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

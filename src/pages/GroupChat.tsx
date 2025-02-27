@@ -23,175 +23,56 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import ChatSidebar from "@/components/ChatSidebar";
 import MessageInput from "@/components/MessageInput";
-import ChatMessage, { Message } from "@/components/ChatMessage";
+import ChatMessage from "@/components/ChatMessage";
 import { useAuth } from "@/context/auth-context";
+import { useMessages, ChatMessage as MessageType } from "@/hooks/useMessages";
+import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, MoreVertical, Phone, Video, Search, Users, Trash, Bell, BellOff, UserPlus, Info } from "lucide-react";
-
-// Mock group data
-const MOCK_GROUPS = {
-  group_1: { 
-    id: "group_1", 
-    name: "Design Team", 
-    avatar: "/placeholder.svg", 
-    description: "Our design team's discussions, updates, and collaboration space.",
-    members: [
-      { id: "user_1", name: "Alex Johnson", avatar: "/placeholder.svg", role: "admin" },
-      { id: "user_2", name: "Maria Garcia", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_3", name: "James Smith", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_4", name: "Emma Wilson", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_5", name: "Michael Brown", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_6", name: "Sophia Davis", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_7", name: "Oliver Taylor", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_8", name: "Isabella Martinez", avatar: "/placeholder.svg", role: "member" },
-    ]
-  },
-  group_2: { 
-    id: "group_2", 
-    name: "Project Alpha", 
-    avatar: "/placeholder.svg", 
-    description: "Coordination for Project Alpha, our flagship product initiative.",
-    members: [
-      { id: "user_1", name: "Alex Johnson", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_3", name: "James Smith", avatar: "/placeholder.svg", role: "admin" },
-      { id: "user_5", name: "Michael Brown", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_7", name: "Oliver Taylor", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_9", name: "Ava White", avatar: "/placeholder.svg", role: "member" },
-    ]
-  },
-  group_3: { 
-    id: "group_3", 
-    name: "Friends", 
-    avatar: "/placeholder.svg", 
-    description: "Our personal group for hanging out, sharing, and staying connected.",
-    members: [
-      { id: "user_2", name: "Maria Garcia", avatar: "/placeholder.svg", role: "admin" },
-      { id: "user_4", name: "Emma Wilson", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_6", name: "Sophia Davis", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_8", name: "Isabella Martinez", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_10", name: "Liam Johnson", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_11", name: "Noah Williams", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_12", name: "Olivia Jones", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_13", name: "Elijah Brown", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_14", name: "Charlotte Davis", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_15", name: "Amelia Miller", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_16", name: "Lucas Wilson", avatar: "/placeholder.svg", role: "member" },
-      { id: "user_17", name: "Mia Moore", avatar: "/placeholder.svg", role: "member" },
-    ]
-  },
-};
-
-// Generate mock messages for a group
-const generateGroupMockMessages = (groupId: string, currentUserId: string): Message[] => {
-  const group = MOCK_GROUPS[groupId as keyof typeof MOCK_GROUPS];
-  
-  if (!group) return [];
-
-  // Current time
-  const now = new Date();
-  
-  // Get some members for messages
-  const members = group.members.slice(0, 4);
-  
-  // Generate messages with various senders
-  return [
-    {
-      id: "gmsg1",
-      senderId: members[0].id,
-      senderName: members[0].name,
-      senderAvatar: members[0].avatar,
-      content: "Hey team! I've been working on the latest design iterations for our project.",
-      timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(), // 3 hours ago
-      isRead: true,
-      isOwnMessage: members[0].id === currentUserId,
-    },
-    {
-      id: "gmsg2",
-      senderId: members[1].id,
-      senderName: members[1].name,
-      senderAvatar: members[1].avatar,
-      content: "Great! Can't wait to see what you've come up with.",
-      timestamp: new Date(now.getTime() - 2.8 * 60 * 60 * 1000).toISOString(),
-      isRead: true,
-      isOwnMessage: members[1].id === currentUserId,
-    },
-    {
-      id: "gmsg3",
-      senderId: members[2].id,
-      senderName: members[2].name,
-      senderAvatar: members[2].avatar,
-      content: "I've also been working on the user flow diagrams. Should we schedule a review session later this week?",
-      timestamp: new Date(now.getTime() - 2.5 * 60 * 60 * 1000).toISOString(),
-      isRead: true,
-      isOwnMessage: members[2].id === currentUserId,
-    },
-    {
-      id: "gmsg4",
-      senderId: currentUserId,
-      senderName: "You",
-      senderAvatar: "/placeholder.svg",
-      content: "That sounds like a good plan. How about Thursday afternoon?",
-      timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-      isRead: true,
-      isOwnMessage: true,
-    },
-    {
-      id: "gmsg5",
-      senderId: members[0].id,
-      senderName: members[0].name,
-      senderAvatar: members[0].avatar,
-      content: "Thursday works for me. I'll share the design files in our shared folder before then so everyone has time to review.",
-      timestamp: new Date(now.getTime() - 1.5 * 60 * 60 * 1000).toISOString(),
-      isRead: true,
-      isOwnMessage: members[0].id === currentUserId,
-    },
-    {
-      id: "gmsg6",
-      senderId: members[3].id,
-      senderName: members[3].name,
-      senderAvatar: members[3].avatar,
-      content: "Perfect! I'm excited to see how this is all coming together.",
-      timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
-      isRead: true,
-      isOwnMessage: members[3].id === currentUserId,
-    },
-    {
-      id: "gmsg7",
-      senderId: members[1].id,
-      senderName: members[1].name,
-      senderAvatar: members[1].avatar,
-      content: "Me too! This project is really moving along nicely.",
-      timestamp: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
-      isRead: true,
-      isOwnMessage: members[1].id === currentUserId,
-    },
-  ];
-};
 
 export default function GroupChat() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { toast } = useToast();
+  const { user, contacts, groups, addToGroup, leaveGroup } = useAuth();
   
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const { messages, isLoading, sendMessage, deleteMessage, deleteChat } = useMessages(groupId || "", true);
+  const [replyTo, setReplyTo] = useState<MessageType | null>(null);
   const [showMembers, setShowMembers] = useState(false);
+  const [showLeaveAlert, setShowLeaveAlert] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
-  const group = MOCK_GROUPS[groupId as keyof typeof MOCK_GROUPS];
+  const group = groups.find(g => g.id === groupId);
+  const isAdmin = group?.createdBy === user?.id;
+  
+  // Get group members info
+  const memberDetails = contacts.filter(contact => 
+    group?.members.includes(contact.id)
+  );
+  
+  // Get contacts not in the group for adding
+  const availableContacts = contacts.filter(contact => 
+    !group?.members.includes(contact.id)
+  );
 
   useEffect(() => {
     if (!group) {
       navigate("/dashboard");
       return;
     }
-    
-    // Load mock messages
-    if (user) {
-      setMessages(generateGroupMockMessages(groupId || "", user.id));
-    }
-  }, [groupId, user, navigate, group]);
+  }, [groupId, navigate, group]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -203,33 +84,68 @@ export default function GroupChat() {
     }
   }, [messages]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     if (!user) return;
     
-    const newMessage: Message = {
-      id: `msg_${Date.now()}`,
-      senderId: user.id,
-      senderName: user.username,
-      senderAvatar: user.avatar,
-      content,
-      timestamp: new Date().toISOString(),
-      isRead: false,
-      isOwnMessage: true,
-    };
-    
-    setMessages((prev) => [...prev, newMessage]);
+    await sendMessage(content);
     setReplyTo(null);
   };
 
-  const handleReply = (message: Message) => {
+  const handleReply = (message: MessageType) => {
     setReplyTo(message);
   };
 
-  const handleDeleteMessage = (messageId: string) => {
-    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+  const handleLeaveGroup = async () => {
+    if (!groupId) return;
+    
+    try {
+      await leaveGroup(groupId);
+      toast({
+        title: isAdmin ? "Group deleted" : "Left group",
+        description: isAdmin 
+          ? "The group has been deleted" 
+          : "You have left the group"
+      });
+      navigate("/dashboard");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to leave group"
+      });
+    }
   };
 
-  if (!group) return null;
+  const handleDeleteChat = async () => {
+    const success = await deleteChat();
+    if (success) {
+      setShowDeleteAlert(false);
+      toast({
+        title: "Chat history cleared",
+        description: "All messages have been deleted"
+      });
+    }
+  };
+
+  const handleAddMember = async (contactId: string) => {
+    if (!groupId) return;
+    
+    try {
+      await addToGroup(groupId, contactId);
+      toast({
+        title: "Member added",
+        description: "New member has been added to the group"
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add member"
+      });
+    }
+  };
+
+  if (!group || !user) return null;
 
   return (
     <div className="flex h-screen bg-background/50">
@@ -290,11 +206,11 @@ export default function GroupChat() {
                 </SheetHeader>
                 <div className="py-4">
                   <div className="text-sm text-muted-foreground mb-4">
-                    {group.members.length} members
+                    {memberDetails.length} members
                   </div>
                   <ScrollArea className="h-[calc(100vh-180px)]">
                     <div className="space-y-4">
-                      {group.members.map((member) => (
+                      {memberDetails.map((member) => (
                         <div key={member.id} className="flex items-center justify-between">
                           <div className="flex items-center">
                             <Avatar className="h-8 w-8 mr-3">
@@ -302,15 +218,27 @@ export default function GroupChat() {
                               <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="text-sm font-medium">{member.name}</h4>
+                              <h4 className="text-sm font-medium">
+                                {member.name}
+                                {member.id === user.id && " (You)"}
+                                {member.id === group.createdBy && 
+                                  <span className="ml-1 text-xs text-muted-foreground">(Admin)</span>
+                                }
+                              </h4>
                               <p className="text-xs text-muted-foreground capitalize">
-                                {member.role}
+                                {member.status}
                               </p>
                             </div>
                           </div>
-                          <Button variant="ghost" size="sm">
-                            Message
-                          </Button>
+                          {member.id !== user.id && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => navigate(`/chat/${member.id}`)}
+                            >
+                              Message
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -342,36 +270,45 @@ export default function GroupChat() {
                   <BellOff className="h-4 w-4 mr-2" />
                   Mute notifications
                 </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Add members
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent className="w-[200px]">
-                      <div className="px-2 py-1.5 text-sm">
-                        Select a contact to add
-                      </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Avatar className="h-5 w-5 mr-2">
-                          <AvatarFallback>JD</AvatarFallback>
-                        </Avatar>
-                        John Doe
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Avatar className="h-5 w-5 mr-2">
-                          <AvatarFallback>AS</AvatarFallback>
-                        </Avatar>
-                        Alice Smith
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
+                {isAdmin && availableContacts.length > 0 && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add members
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="w-[200px]">
+                        <div className="px-2 py-1.5 text-sm">
+                          Select a contact to add
+                        </div>
+                        <DropdownMenuSeparator />
+                        {availableContacts.map(contact => (
+                          <DropdownMenuItem 
+                            key={contact.id}
+                            onClick={() => handleAddMember(contact.id)}
+                          >
+                            <Avatar className="h-5 w-5 mr-2">
+                              <AvatarImage src={contact.avatar} alt={contact.name} />
+                              <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            {contact.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <DropdownMenuItem onClick={() => setShowDeleteAlert(true)}>
                   <Trash className="h-4 w-4 mr-2" />
-                  Leave group
+                  Clear chat history
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowLeaveAlert(true)}
+                >
+                  <Trash className="h-4 w-4 mr-2" />
+                  {isAdmin ? "Delete group" : "Leave group"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -380,16 +317,37 @@ export default function GroupChat() {
 
         {/* Messages Area */}
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-          <div className="space-y-6 pb-4">
-            {messages.map((message, index) => (
-              <ChatMessage 
-                key={message.id} 
-                message={message} 
-                onReply={handleReply}
-                onDelete={handleDeleteMessage}
-              />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex justify-center p-4">
+              <p className="text-muted-foreground">Loading messages...</p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+              <Avatar className="h-16 w-16 mb-4">
+                <AvatarImage src={group.avatar} alt={group.name} />
+                <AvatarFallback>{group.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <h3 className="text-lg font-medium mb-2">{group.name}</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                This is the beginning of the {group.name} group chat.
+                {isAdmin ? " As the admin, start the conversation!" : ""}
+              </p>
+              <Button onClick={() => handleSendMessage(`Hello everyone in ${group.name}! 👋`)}>
+                Start Conversation
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6 pb-4">
+              {messages.map((message) => (
+                <ChatMessage 
+                  key={message.id} 
+                  message={message} 
+                  onReply={handleReply}
+                  onDelete={() => deleteMessage(message.id)}
+                />
+              ))}
+            </div>
+          )}
         </ScrollArea>
 
         {/* Reply Indicator */}
@@ -421,6 +379,48 @@ export default function GroupChat() {
 
         {/* Message Input */}
         <MessageInput onSendMessage={handleSendMessage} />
+
+        {/* Leave Group Alert Dialog */}
+        <AlertDialog open={showLeaveAlert} onOpenChange={setShowLeaveAlert}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {isAdmin ? "Delete Group" : "Leave Group"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {isAdmin 
+                  ? "This will permanently delete the group and all messages. This action cannot be undone."
+                  : "Are you sure you want to leave this group? You'll need to be added back by an admin to rejoin."
+                }
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLeaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {isAdmin ? "Delete Group" : "Leave Group"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Chat History Alert Dialog */}
+        <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear Chat History</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete all messages in this group chat.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteChat} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Clear History
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
