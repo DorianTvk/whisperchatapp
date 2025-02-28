@@ -48,6 +48,8 @@ export default function ChatSidebar() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [imageUploadDialogOpen, setImageUploadDialogOpen] = useState(false);
+  const [showAllAis, setShowAllAis] = useState(true); // Show all AIs by default
+  const [showAllFriends, setShowAllFriends] = useState(true); // Show all friends by default
 
   useEffect(() => {
     // Filter contacts and ais based on search query
@@ -73,6 +75,10 @@ export default function ChatSidebar() {
         );
         setFilteredFriends(friends);
       }
+
+      // Always show all items when searching
+      setShowAllAis(true);
+      setShowAllFriends(true);
     } else {
       setFilteredContacts(contacts);
       setFilteredAis(ais);
@@ -338,7 +344,7 @@ export default function ChatSidebar() {
               <span className="text-xs">{filteredAis.length}</span>
             </div>
           </div>
-          <ScrollArea className="flex-1 px-2">
+          <div className="flex-1 px-2 overflow-auto">
             <div className="space-y-1 py-1">
               {filteredAis.length === 0 ? (
                 <div className="text-center py-4">
@@ -385,7 +391,7 @@ export default function ChatSidebar() {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
         </TabsContent>
 
         <TabsContent value="friends" className="flex-1 overflow-hidden flex flex-col">
@@ -400,7 +406,7 @@ export default function ChatSidebar() {
               onContactAdded={refreshLists}
             />
           </div>
-          <ScrollArea className="flex-1 px-2">
+          <div className="flex-1 px-2 overflow-auto">
             <div className="space-y-1 py-1">
               {filteredFriends.length === 0 ? (
                 <div className="text-center py-4">
@@ -482,7 +488,7 @@ export default function ChatSidebar() {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
         </TabsContent>
       </Tabs>
 

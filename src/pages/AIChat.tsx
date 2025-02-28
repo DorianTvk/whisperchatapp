@@ -27,6 +27,78 @@ import { useMessages, ChatMessage as MessageType } from "@/hooks/useMessages";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, MoreVertical, Bot, Search, Info, Trash, BellOff, Sparkles } from "lucide-react";
 
+const AI_PERSONALITY_TRAITS = {
+  "ChatGPT": {
+    style: "helpful, clear, and concise",
+    strengths: ["general knowledge", "writing assistance", "summarization"],
+    quirks: "occasionally provides detailed explanations"
+  },
+  "Claude": {
+    style: "thoughtful, nuanced, and safety-focused",
+    strengths: ["reasoning", "longer discussions", "ethical considerations"],
+    quirks: "tends to be more cautious and reflective"
+  },
+  "Gemini": {
+    style: "versatile and multimodal",
+    strengths: ["analyzing different types of input", "creative tasks", "problem-solving"],
+    quirks: "references its ability to understand various formats"
+  },
+  "Perplexity": {
+    style: "informative with real-time search capabilities",
+    strengths: ["up-to-date information", "citation of sources", "research assistance"],
+    quirks: "frequently cites external sources and references"
+  },
+  "DeepSeek": {
+    style: "technically precise and analytical",
+    strengths: ["complex problem solving", "code generation", "technical explanations"],
+    quirks: "tends to dive deeply into technical details"
+  },
+  "Llama": {
+    style: "open and community-oriented",
+    strengths: ["general knowledge", "adaptability", "transparency about limitations"],
+    quirks: "sometimes mentions its open-source nature"
+  },
+  "Mistral": {
+    style: "efficient and precise",
+    strengths: ["technical understanding", "succinct explanations", "logical reasoning"],
+    quirks: "balances brevity with informativeness"
+  },
+  "Copilot": {
+    style: "code-oriented and supportive",
+    strengths: ["programming assistance", "debugging help", "technical documentation"],
+    quirks: "frequently suggests code solutions and explanations"
+  }
+};
+
+// Common AI response templates for different types of queries
+const RESPONSE_TEMPLATES = {
+  factual: [
+    "Based on my knowledge, {fact}. This is important because {reason}.",
+    "I can tell you that {fact}. Many people find that {elaboration}.",
+    "The answer is {fact}. To put this in context, {context}."
+  ],
+  opinion: [
+    "While opinions vary on this topic, {perspective1}. However, others believe {perspective2}.",
+    "This is a nuanced question. On one hand, {perspective1}. On the other hand, {perspective2}.",
+    "There are multiple viewpoints here: {perspective1}. Alternatively, {perspective2}."
+  ],
+  creative: [
+    "Here's something I came up with: {creative_content}. I hope this {purpose}!",
+    "I've created this for you: {creative_content}. Does this {question}?",
+    "How about this: {creative_content}. Feel free to ask for adjustments!"
+  ],
+  technical: [
+    "From a technical perspective, {explanation}. This works because {reason}.",
+    "The technical answer is {explanation}. A common approach is to {approach}.",
+    "In technical terms, {explanation}. This is important because {importance}."
+  ],
+  unclear: [
+    "I'm not completely sure what you're asking. Could you clarify if you're looking for {option1} or {option2}?",
+    "I'd like to help, but I need a bit more information. Are you asking about {option1} or something else?",
+    "To best assist you, could you provide more details about what you mean by {unclear_term}?"
+  ]
+};
+
 export default function AIChat() {
   const { aiId } = useParams<{ aiId: string }>();
   const navigate = useNavigate();
@@ -39,6 +111,7 @@ export default function AIChat() {
   const [filteredMessages, setFilteredMessages] = useState<MessageType[]>([]);
   const [showAiInfo, setShowAiInfo] = useState(false);
   const [firstMessage, setFirstMessage] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const ai = ais.find(a => a.id === aiId);
@@ -71,7 +144,7 @@ export default function AIChat() {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [filteredMessages, searchText]);
+  }, [filteredMessages, searchText, isTyping]);
 
   useEffect(() => {
     // Send welcome message if this is the first time chatting with this AI
@@ -128,9 +201,13 @@ export default function AIChat() {
     // Send user message
     sendMessage(content);
     
+    // Show typing indicator
+    setIsTyping(true);
+    
     // Simulate AI response
+    const responseTime = Math.floor(Math.random() * 500) + 1000; // Between 1-1.5 seconds
     setTimeout(() => {
-      const aiResponse = simulateAIResponse(content, ai);
+      const aiResponse = generateAIResponse(content, ai);
       
       // Create a mock AI response message
       const mockMessage: MessageType = {
@@ -147,23 +224,222 @@ export default function AIChat() {
       
       // Send the AI message
       sendMessage(aiResponse, undefined, mockMessage);
-    }, 1500);
+      setIsTyping(false);
+    }, responseTime);
   };
 
-  const simulateAIResponse = (userMessage: string, ai: any) => {
-    // Very simple response generator - in a real app this would call API endpoints
-    const responses = [
-      `I understand you're asking about "${userMessage.substring(0, 30)}...". Let me help with that.`,
-      `Thanks for your message. From what I understand about "${userMessage.substring(0, 20)}...", here's what I can tell you...`,
-      `That's an interesting question about "${userMessage.substring(0, 25)}...". Let me explain...`,
-      `I see you're interested in learning about "${userMessage.substring(0, 20)}...". Here's what I know...`,
-      `Regarding "${userMessage.substring(0, 30)}...", I can provide the following information...`
-    ];
+  const generateAIResponse = (userMessage: string, ai: any) => {
+    const messageType = categorizeMessage(userMessage);
+    const aiPersonality = AI_PERSONALITY_TRAITS[ai.name] || {
+      style: "helpful and informative",
+      strengths: ["answering questions"],
+      quirks: "provides useful information"
+    };
     
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-    const aiSpecificAddition = `\n\nAs ${ai.name}, I specialize in ${ai.capabilities.join(", ")}. Based on my training, I can tell you that this topic ${Math.random() > 0.5 ? "is well-documented" : "has some interesting nuances"}.`;
+    // Select a response template based on the message type
+    const templates = RESPONSE_TEMPLATES[messageType];
+    const template = templates[Math.floor(Math.random() * templates.length)];
     
-    return randomResponse + aiSpecificAddition;
+    // Fill in the template with contextual information
+    let response = "";
+    
+    switch (messageType) {
+      case "factual":
+        response = template
+          .replace("{fact}", generateFact(userMessage, ai))
+          .replace("{reason}", "it helps us understand the context better")
+          .replace("{elaboration}", "this information provides valuable insight")
+          .replace("{context}", "this is a commonly discussed topic");
+        break;
+      
+      case "opinion":
+        response = template
+          .replace("{perspective1}", "some experts believe this is beneficial")
+          .replace("{perspective2}", "others point out potential drawbacks");
+        break;
+      
+      case "creative":
+        response = template
+          .replace("{creative_content}", generateCreativeContent(userMessage, ai))
+          .replace("{purpose}", "inspires your creativity")
+          .replace("{question}", "meet your expectations");
+        break;
+      
+      case "technical":
+        response = template
+          .replace("{explanation}", generateTechnicalExplanation(userMessage, ai))
+          .replace("{reason}", "it follows established principles")
+          .replace("{approach}", "break down the problem into smaller parts")
+          .replace("{importance}", "it impacts how we approach similar problems");
+        break;
+      
+      case "unclear":
+        const keywords = userMessage.split(" ").filter(word => word.length > 4);
+        const term1 = keywords.length > 0 ? keywords[0] : "this topic";
+        const term2 = keywords.length > 1 ? keywords[1] : "related information";
+        
+        response = template
+          .replace("{option1}", term1)
+          .replace("{option2}", term2)
+          .replace("{unclear_term}", userMessage.substring(0, 20));
+        break;
+    }
+    
+    // Add personality-specific flair
+    const personalityAddition = `\n\nAs an AI with ${aiPersonality.style} communication style, I ${Math.random() > 0.5 ? "excel at" : "specialize in"} ${aiPersonality.strengths.join(", ")}. ${aiPersonality.quirks}. Let me know if you'd like more details or have other questions!`;
+    
+    return response + personalityAddition;
+  };
+
+  const categorizeMessage = (message: string): keyof typeof RESPONSE_TEMPLATES => {
+    // Simple heuristic to categorize the message
+    const lowercaseMsg = message.toLowerCase();
+    
+    // Check if it's a factual question
+    if (lowercaseMsg.includes("what is") || 
+        lowercaseMsg.includes("who is") || 
+        lowercaseMsg.includes("when did") || 
+        lowercaseMsg.includes("where is") ||
+        lowercaseMsg.includes("how many")) {
+      return "factual";
+    }
+    
+    // Check if it's an opinion question
+    if (lowercaseMsg.includes("do you think") || 
+        lowercaseMsg.includes("what do you believe") || 
+        lowercaseMsg.includes("your opinion") || 
+        lowercaseMsg.includes("better") ||
+        lowercaseMsg.includes("best")) {
+      return "opinion";
+    }
+    
+    // Check if it's a creative request
+    if (lowercaseMsg.includes("create") || 
+        lowercaseMsg.includes("generate") || 
+        lowercaseMsg.includes("write") || 
+        lowercaseMsg.includes("design") ||
+        lowercaseMsg.includes("story") ||
+        lowercaseMsg.includes("poem")) {
+      return "creative";
+    }
+    
+    // Check if it's a technical question
+    if (lowercaseMsg.includes("how to") || 
+        lowercaseMsg.includes("how do") || 
+        lowercaseMsg.includes("explain") || 
+        lowercaseMsg.includes("code") ||
+        lowercaseMsg.includes("function") ||
+        lowercaseMsg.includes("program")) {
+      return "technical";
+    }
+    
+    // If the message is very short or unclear
+    if (message.split(" ").length < 3 || message.endsWith("?")) {
+      return "unclear";
+    }
+    
+    // Default to factual for other cases
+    return "factual";
+  };
+
+  const generateFact = (userMessage: string, ai: any) => {
+    const topics = {
+      technology: [
+        "artificial intelligence continues to evolve rapidly with new models being developed every year",
+        "quantum computing may eventually solve problems that are currently intractable for classical computers",
+        "blockchain technology has applications beyond cryptocurrency, including supply chain management"
+      ],
+      science: [
+        "black holes emit radiation, which is now known as Hawking radiation",
+        "human DNA shares about 60% similarity with banana DNA",
+        "the human brain processes information at roughly 120 meters per second"
+      ],
+      history: [
+        "the ancient Egyptian pyramids at Giza were built over approximately 85 years",
+        "the printing press was invented around 1440 by Johannes Gutenberg",
+        "the Byzantine Empire lasted for more than a thousand years after the fall of the Western Roman Empire"
+      ],
+      arts: [
+        "Leonardo da Vinci's Mona Lisa is painted on a poplar wood panel",
+        "Shakespeare wrote approximately 37 plays and 154 sonnets",
+        "Vincent van Gogh sold only one painting during his lifetime"
+      ]
+    };
+    
+    // Determine the most likely topic based on the user message
+    let relevantTopic: keyof typeof topics = "technology";
+    const lowercaseMsg = userMessage.toLowerCase();
+    
+    if (lowercaseMsg.includes("history") || 
+        lowercaseMsg.includes("ancient") || 
+        lowercaseMsg.includes("war") || 
+        lowercaseMsg.includes("empire")) {
+      relevantTopic = "history";
+    } else if (lowercaseMsg.includes("science") || 
+               lowercaseMsg.includes("physics") || 
+               lowercaseMsg.includes("biology") || 
+               lowercaseMsg.includes("chemistry")) {
+      relevantTopic = "science";
+    } else if (lowercaseMsg.includes("art") || 
+               lowercaseMsg.includes("music") || 
+               lowercaseMsg.includes("literature") || 
+               lowercaseMsg.includes("painting")) {
+      relevantTopic = "arts";
+    }
+    
+    // Get a random fact from the relevant topic
+    const facts = topics[relevantTopic];
+    return facts[Math.floor(Math.random() * facts.length)];
+  };
+
+  const generateCreativeContent = (userMessage: string, ai: any) => {
+    const lowercaseMsg = userMessage.toLowerCase();
+    
+    // Story snippet
+    if (lowercaseMsg.includes("story") || lowercaseMsg.includes("tale")) {
+      return "In a world where dreams manifested as tangible objects, a young collector named Elias discovered an ancient dream hidden in his grandmother's attic. Unlike the others, this dream seemed to be aware of its surroundings...";
+    }
+    
+    // Poem
+    if (lowercaseMsg.includes("poem") || lowercaseMsg.includes("poetry")) {
+      return "Silent whispers through autumn leaves,\nTime's gentle passage as daylight grieves.\nMemories dance on the edge of sleep,\nPromises made that the stars will keep.";
+    }
+    
+    // Business idea
+    if (lowercaseMsg.includes("business") || lowercaseMsg.includes("startup")) {
+      return "A subscription service that delivers personalized plant care kits based on the specific needs of your indoor plants, including seasonal nutrients, care tools, and AI-powered monitoring to ensure your plants thrive year-round.";
+    }
+    
+    // Default creative response
+    return "A concept for a digital garden that grows based on your daily habits and achievements. Each positive action in your life nurtures a virtual plant, creating a beautiful visual representation of your personal growth over time.";
+  };
+
+  const generateTechnicalExplanation = (userMessage: string, ai: any) => {
+    const lowercaseMsg = userMessage.toLowerCase();
+    
+    // Programming explanation
+    if (lowercaseMsg.includes("code") || 
+        lowercaseMsg.includes("program") || 
+        lowercaseMsg.includes("develop")) {
+      return "asynchronous functions in JavaScript allow operations to continue running while waiting for promises to resolve, which is crucial for handling tasks like API requests without blocking the main thread";
+    }
+    
+    // Science explanation
+    if (lowercaseMsg.includes("science") || 
+        lowercaseMsg.includes("physics") || 
+        lowercaseMsg.includes("chemistry")) {
+      return "quantum entanglement occurs when pairs of particles interact in ways such that the quantum state of each particle cannot be described independently of the others, regardless of the distance separating them";
+    }
+    
+    // Math explanation
+    if (lowercaseMsg.includes("math") || 
+        lowercaseMsg.includes("algorithm") || 
+        lowercaseMsg.includes("calculation")) {
+      return "the Fibonacci sequence has applications in numerous fields, from computer algorithms to financial markets, because its recursive pattern models many natural phenomena and optimization problems";
+    }
+    
+    // Default technical explanation
+    return "systems designed with redundancy incorporate backup components that can take over when primary components fail, which is a fundamental principle in creating robust infrastructure for critical applications";
   };
 
   const handleDeleteMessage = (messageId: string) => {
@@ -329,13 +605,32 @@ export default function AIChat() {
                 </div>
               )
             ) : (
-              filteredMessages.map((message) => (
-                <ChatMessage 
-                  key={message.id} 
-                  message={message} 
-                  onDelete={handleDeleteMessage}
-                />
-              ))
+              <>
+                {filteredMessages.map((message) => (
+                  <ChatMessage 
+                    key={message.id} 
+                    message={message} 
+                    onDelete={handleDeleteMessage}
+                  />
+                ))}
+                
+                {/* Typing indicator */}
+                {isTyping && (
+                  <div className="flex items-center">
+                    <Avatar className="h-10 w-10 mr-4">
+                      <AvatarImage src={ai.avatar} alt={ai.name} />
+                      <AvatarFallback>
+                        <Bot className="h-5 w-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex space-x-1 p-2 rounded-md bg-muted">
+                      <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                      <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                      <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: "300ms" }}></div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </ScrollArea>
