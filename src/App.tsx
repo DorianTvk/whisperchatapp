@@ -11,7 +11,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import DirectChat from "./pages/DirectChat";
-import GroupChat from "./pages/GroupChat";
+import AIChat from "./pages/AIChat";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -47,10 +47,10 @@ const App = () => (
                 } 
               />
               <Route 
-                path="/group/:groupId" 
+                path="/ai/:aiId" 
                 element={
                   <ProtectedRoute>
-                    <GroupChat />
+                    <AIChat />
                   </ProtectedRoute>
                 } 
               />

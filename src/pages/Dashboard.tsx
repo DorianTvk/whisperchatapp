@@ -3,40 +3,43 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import ChatSidebar from "@/components/ChatSidebar";
 import { useAuth } from "@/context/auth-context";
-import { Search, MessageSquare, Users } from "lucide-react";
+import { Search, MessageSquare, Bot } from "lucide-react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, contacts, groups } = useAuth();
+  const { user, contacts, ais } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredContacts, setFilteredContacts] = useState(contacts);
-  const [filteredGroups, setFilteredGroups] = useState(groups);
+  const [filteredAis, setFilteredAis] = useState(ais);
   
   useEffect(() => {
-    // Filter contacts and groups based on search query
+    // Filter contacts and ais based on search query
     if (searchQuery.trim()) {
       setFilteredContacts(
         contacts.filter((contact) =>
           contact.name.toLowerCase().includes(searchQuery.toLowerCase())
         )
       );
-      setFilteredGroups(
-        groups.filter((group) =>
-          group.name.toLowerCase().includes(searchQuery.toLowerCase())
+      setFilteredAis(
+        ais.filter((ai) =>
+          ai.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ai.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ai.provider.toLowerCase().includes(searchQuery.toLowerCase())
         )
       );
     } else {
       setFilteredContacts(contacts);
-      setFilteredGroups(groups);
+      setFilteredAis(ais);
     }
-  }, [searchQuery, contacts, groups]);
+  }, [searchQuery, contacts, ais]);
 
   if (!user) return null;
 
@@ -64,7 +67,7 @@ export default function Dashboard() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Search for contacts, groups or messages..."
+                placeholder="Search for contacts, AIs or messages..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -74,7 +77,7 @@ export default function Dashboard() {
               <TabsList>
                 <TabsTrigger value="recent">Recent</TabsTrigger>
                 <TabsTrigger value="contacts">Contacts</TabsTrigger>
-                <TabsTrigger value="groups">Groups</TabsTrigger>
+                <TabsTrigger value="ais">AIs</TabsTrigger>
               </TabsList>
               
               {/* Recent Tab */}
@@ -118,29 +121,31 @@ export default function Dashboard() {
                           </div>
                         ))}
                         
-                        {filteredGroups.slice(0, 2).map((group) => (
+                        {filteredAis.slice(0, 2).map((ai) => (
                           <div 
-                            key={group.id}
+                            key={ai.id}
                             className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer"
-                            onClick={() => navigate(`/group/${group.id}`)}
+                            onClick={() => navigate(`/ai/${ai.id}`)}
                           >
                             <div className="flex items-center">
                               <Avatar className="h-10 w-10 mr-3">
-                                <AvatarImage src={group.avatar} alt={group.name} />
-                                <AvatarFallback>{group.name.charAt(0)}</AvatarFallback>
+                                <AvatarImage src={ai.avatar} alt={ai.name} />
+                                <AvatarFallback>
+                                  <Bot className="h-5 w-5" />
+                                </AvatarFallback>
                               </Avatar>
                               <div>
-                                <h4 className="text-sm font-medium">{group.name}</h4>
+                                <h4 className="text-sm font-medium">{ai.name}</h4>
                                 <p className="text-xs text-muted-foreground">
-                                  {group.members.length} members
+                                  {ai.provider}
                                 </p>
                               </div>
                             </div>
-                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <Bot className="h-4 w-4 text-muted-foreground" />
                           </div>
                         ))}
                         
-                        {filteredContacts.length === 0 && filteredGroups.length === 0 && (
+                        {filteredContacts.length === 0 && filteredAis.length === 0 && (
                           <div className="text-center py-10">
                             <p className="text-muted-foreground">No results found for "{searchQuery}"</p>
                           </div>
@@ -218,54 +223,73 @@ export default function Dashboard() {
                 </Card>
               </TabsContent>
               
-              {/* Groups Tab */}
-              <TabsContent value="groups" className="space-y-6">
+              {/* AIs Tab */}
+              <TabsContent value="ais" className="space-y-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div>
-                      <CardTitle>Group Chats</CardTitle>
-                      <CardDescription>Your group conversations</CardDescription>
+                      <CardTitle>AI Assistants</CardTitle>
+                      <CardDescription>Chat with AI assistants and get help</CardDescription>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <ScrollArea className="h-[400px] pr-4">
                       <div className="space-y-2">
-                        {filteredGroups.length === 0 ? (
+                        {filteredAis.length === 0 ? (
                           <div className="text-center py-10">
                             {searchQuery ? (
-                              <p className="text-muted-foreground">No groups found for "{searchQuery}"</p>
+                              <p className="text-muted-foreground">No AI assistants found for "{searchQuery}"</p>
                             ) : (
-                              <p className="text-muted-foreground">You don't have any groups yet</p>
+                              <p className="text-muted-foreground">No AI assistants available</p>
                             )}
                           </div>
                         ) : (
-                          filteredGroups.map((group) => (
+                          filteredAis.map((ai) => (
                             <div 
-                              key={group.id}
+                              key={ai.id}
                               className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer"
-                              onClick={() => navigate(`/group/${group.id}`)}
+                              onClick={() => navigate(`/ai/${ai.id}`)}
                             >
-                              <div className="flex items-center">
-                                <Avatar className="h-10 w-10 mr-3">
-                                  <AvatarImage src={group.avatar} alt={group.name} />
-                                  <AvatarFallback>{group.name.charAt(0)}</AvatarFallback>
+                              <div className="flex items-center flex-1 min-w-0">
+                                <Avatar className="h-10 w-10 mr-3 shrink-0">
+                                  <AvatarImage src={ai.avatar} alt={ai.name} />
+                                  <AvatarFallback>
+                                    <Bot className="h-5 w-5" />
+                                  </AvatarFallback>
                                 </Avatar>
-                                <div>
-                                  <h4 className="text-sm font-medium">{group.name}</h4>
-                                  <p className="text-xs text-muted-foreground">
-                                    {group.members.length} members
+                                <div className="min-w-0">
+                                  <div className="flex items-center">
+                                    <h4 className="text-sm font-medium">{ai.name}</h4>
+                                    {ai.isAvailable && (
+                                      <span className="ml-2 h-2 w-2 rounded-full bg-green-500"></span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                    {ai.description}
                                   </p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {ai.capabilities.slice(0, 2).map((capability, idx) => (
+                                      <Badge key={idx} variant="outline" className="text-xs px-1.5 py-0 bg-muted">
+                                        {capability}
+                                      </Badge>
+                                    ))}
+                                    {ai.capabilities.length > 2 && (
+                                      <Badge variant="outline" className="text-xs px-1.5 py-0 bg-muted">
+                                        +{ai.capabilities.length - 2}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                               <Button 
                                 variant="outline" 
-                                className="h-8 w-8 p-0 rounded-full"
+                                className="h-8 w-8 p-0 rounded-full ml-2 shrink-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/group/${group.id}`);
+                                  navigate(`/ai/${ai.id}`);
                                 }}
                               >
-                                <Users className="h-4 w-4" />
+                                <Bot className="h-4 w-4" />
                               </Button>
                             </div>
                           ))
