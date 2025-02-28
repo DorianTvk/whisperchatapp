@@ -25,6 +25,16 @@ export interface Contact {
   lastActive: string;
 }
 
+export interface ChatGroup {
+  id: string;
+  name: string;
+  avatar: string;
+  description: string;
+  members: string[]; // IDs of members
+  createdBy: string; // ID of creator
+  createdAt: string;
+}
+
 export interface AI {
   id: string;
   name: string;
@@ -40,6 +50,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   contacts: Contact[];
+  groups: ChatGroup[];
   ais: AI[];
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
@@ -49,6 +60,9 @@ interface AuthContextType {
   updateStatus: (status: UserStatus, message?: string) => Promise<void>;
   addContact: (email: string) => Promise<Contact>;
   removeContact: (contactId: string) => Promise<void>;
+  createGroup: (name: string, members: string[]) => Promise<ChatGroup>;
+  leaveGroup: (groupId: string) => Promise<void>;
+  addToGroup: (groupId: string, userId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,6 +70,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Storage keys
 const USER_STORAGE_KEY = "whisper-auth-user";
 const CONTACTS_STORAGE_KEY = "whisper-contacts";
+const GROUPS_STORAGE_KEY = "whisper-groups";
 const AIS_STORAGE_KEY = "whisper-ais";
 
 // Default avatar URLs
@@ -73,6 +88,28 @@ const INITIAL_CONTACTS: Contact[] = [
   { id: "user_2", name: "Maria Garcia", email: "maria@example.com", avatar: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158", status: "offline", lastActive: "1h ago" },
   { id: "user_3", name: "James Smith", email: "james@example.com", avatar: "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952", status: "away", lastActive: "30m ago" },
   { id: "user_4", name: "Emma Wilson", email: "emma@example.com", avatar: "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1", status: "online", lastActive: "Now" }
+];
+
+// Mock groups
+const INITIAL_GROUPS: ChatGroup[] = [
+  { 
+    id: "group_1", 
+    name: "Design Team", 
+    avatar: "https://images.unsplash.com/photo-1582562124811-c09040d0a901", 
+    description: "Our design team's discussions", 
+    members: ["user_1", "user_2", "user_3"], 
+    createdBy: "user_1",
+    createdAt: new Date().toISOString()
+  },
+  { 
+    id: "group_2", 
+    name: "Project Alpha", 
+    avatar: "https://images.unsplash.com/photo-1582562124811-c09040d0a901", 
+    description: "Coordination for Project Alpha", 
+    members: ["user_1", "user_3"], 
+    createdBy: "user_3",
+    createdAt: new Date().toISOString()
+  }
 ];
 
 // AI assistants
@@ -154,6 +191,7 @@ const INITIAL_AIS: AI[] = [
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [ais, setAis] = useState<AI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -161,6 +199,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Load stored data on mount
     const storedUser = localStorage.getItem(USER_STORAGE_KEY);
     const storedContacts = localStorage.getItem(CONTACTS_STORAGE_KEY);
+    const storedGroups = localStorage.getItem(GROUPS_STORAGE_KEY);
     const storedAis = localStorage.getItem(AIS_STORAGE_KEY);
     
     if (storedUser) {
@@ -172,6 +211,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       setContacts(INITIAL_CONTACTS);
       localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(INITIAL_CONTACTS));
+    }
+    
+    if (storedGroups) {
+      setGroups(JSON.parse(storedGroups));
+    } else {
+      setGroups(INITIAL_GROUPS);
+      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(INITIAL_GROUPS));
     }
     
     if (storedAis) {
@@ -432,6 +478,141 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const createGroup = async (name: string, members: string[]): Promise<ChatGroup> => {
+    setIsLoading(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      if (!user) {
+        throw new Error("You must be logged in to create a group");
+      }
+      
+      // Create a new group
+      const newGroup: ChatGroup = {
+        id: `group_${Date.now()}`,
+        name,
+        avatar: getRandomAvatar(),
+        description: `${name} group chat`,
+        members: [...members, user.id], // Add the current user
+        createdBy: user.id,
+        createdAt: new Date().toISOString()
+      };
+      
+      const updatedGroups = [...groups, newGroup];
+      setGroups(updatedGroups);
+      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updatedGroups));
+      
+      return newGroup;
+    } catch (error) {
+      console.error("Create group failed:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const leaveGroup = async (groupId: string) => {
+    setIsLoading(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      if (!user) {
+        throw new Error("You must be logged in to leave a group");
+      }
+      
+      // Find the group
+      const group = groups.find(g => g.id === groupId);
+      if (!group) {
+        throw new Error("Group not found");
+      }
+      
+      // Check if user is part of the group
+      if (!group.members.includes(user.id)) {
+        throw new Error("You are not a member of this group");
+      }
+      
+      // If user is the creator of the group and there are other members,
+      // transfer ownership to the next member
+      let updatedGroups;
+      if (group.createdBy === user.id && group.members.length > 1) {
+        const newOwner = group.members.find(id => id !== user.id) || group.members[0];
+        const updatedGroup = {
+          ...group,
+          members: group.members.filter(id => id !== user.id),
+          createdBy: newOwner
+        };
+        updatedGroups = groups.map(g => g.id === groupId ? updatedGroup : g);
+      } 
+      // If user is the only member or not the creator, just remove them from the group
+      // or delete the group if they're the only member
+      else if (group.members.length === 1) {
+        updatedGroups = groups.filter(g => g.id !== groupId);
+      } else {
+        const updatedGroup = {
+          ...group,
+          members: group.members.filter(id => id !== user.id)
+        };
+        updatedGroups = groups.map(g => g.id === groupId ? updatedGroup : g);
+      }
+      
+      setGroups(updatedGroups);
+      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updatedGroups));
+    } catch (error) {
+      console.error("Leave group failed:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const addToGroup = async (groupId: string, userId: string) => {
+    setIsLoading(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      if (!user) {
+        throw new Error("You must be logged in to add members");
+      }
+      
+      // Find the group
+      const group = groups.find(g => g.id === groupId);
+      if (!group) {
+        throw new Error("Group not found");
+      }
+      
+      // Check if user is the creator of the group
+      if (group.createdBy !== user.id) {
+        throw new Error("Only the group creator can add members");
+      }
+      
+      // Check if the user to be added exists
+      const userToAdd = contacts.find(c => c.id === userId);
+      if (!userToAdd) {
+        throw new Error("User not found");
+      }
+      
+      // Check if the user is already a member
+      if (group.members.includes(userId)) {
+        throw new Error("User is already a member of this group");
+      }
+      
+      // Add the user to the group
+      const updatedGroup = {
+        ...group,
+        members: [...group.members, userId]
+      };
+      
+      const updatedGroups = groups.map(g => g.id === groupId ? updatedGroup : g);
+      setGroups(updatedGroups);
+      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updatedGroups));
+    } catch (error) {
+      console.error("Add to group failed:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -439,6 +620,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAuthenticated: !!user,
         isLoading,
         contacts,
+        groups,
         ais,
         login,
         register,
@@ -447,7 +629,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateAvatar,
         updateStatus,
         addContact,
-        removeContact
+        removeContact,
+        createGroup,
+        leaveGroup,
+        addToGroup
       }}
     >
       {children}

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ModeToggle } from "@/components/mode-toggle";
+import { ModeToggle } from "@/components/theme-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,8 +30,9 @@ import {
   MoreVertical,
   UserX,
   User,
-  Badge
+  Badge as BadgeIcon
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function ChatSidebar() {
   const location = useLocation();
@@ -332,9 +333,10 @@ export default function ChatSidebar() {
         <TabsContent value="ais" className="flex-1 overflow-hidden flex flex-col">
           <div className="px-2 py-1 flex items-center justify-between">
             <h2 className="text-sm font-medium">AI Assistants</h2>
-            <Badge variant="outline" className="text-xs">
-              {filteredAis.length} AIs
-            </Badge>
+            <div className="flex items-center">
+              <BadgeIcon className="h-4 w-4 mr-1" />
+              <span className="text-xs">{filteredAis.length}</span>
+            </div>
           </div>
           <ScrollArea className="flex-1 px-2">
             <div className="space-y-1 py-1">

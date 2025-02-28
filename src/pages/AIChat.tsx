@@ -80,6 +80,7 @@ export default function AIChat() {
       // Create a mock AI welcome message
       const mockAiResponse = generateWelcomeMessage(ai);
       setTimeout(() => {
+        // Create AI message
         const mockMessage: MessageType = {
           id: `msg_${Date.now()}`,
           chatId: ai.id,
@@ -91,10 +92,12 @@ export default function AIChat() {
           isRead: true,
           isOwnMessage: false
         };
-        sendMessage(mockAiResponse);
+        
+        // Send it
+        sendMessage(mockAiResponse, undefined, mockMessage);
       }, 1000);
     }
-  }, [ai, messages.length, firstMessage]);
+  }, [ai, messages.length, firstMessage, sendMessage]);
 
   const generateWelcomeMessage = (ai: any) => {
     switch (ai.name) {
@@ -142,6 +145,7 @@ export default function AIChat() {
         isOwnMessage: false
       };
       
+      // Send the AI message
       sendMessage(aiResponse, undefined, mockMessage);
     }, 1500);
   };

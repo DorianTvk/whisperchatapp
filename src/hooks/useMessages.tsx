@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "@/context/auth-context";
@@ -23,8 +22,9 @@ export interface ChatMessage {
 // Chat storage keys
 const DIRECT_MESSAGES_KEY = "whisper-direct-messages";
 const GROUP_MESSAGES_KEY = "whisper-group-messages";
+const AI_MESSAGES_KEY = "whisper-ai-messages";
 
-export const useMessages = (chatId: string, isGroup: boolean = false) => {
+export const useMessages = (chatId: string, isAi: boolean = false) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -34,7 +34,7 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
   useEffect(() => {
     if (!chatId) return;
     
-    const storageKey = isGroup ? GROUP_MESSAGES_KEY : DIRECT_MESSAGES_KEY;
+    const storageKey = isAi ? AI_MESSAGES_KEY : DIRECT_MESSAGES_KEY;
     const storedMessages = localStorage.getItem(storageKey);
     
     if (storedMessages) {
@@ -48,11 +48,24 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
     }
     
     setIsLoading(false);
-  }, [chatId, isGroup]);
+  }, [chatId, isAi]);
 
-  // Send a message
-  const sendMessage = async (content: string, replyToMessage?: ChatMessage) => {
-    if (!user || !chatId || !content.trim()) return null;
+  // Send a message (for user-sent messages)
+  const sendMessage = async (content: string, replyToMessage?: ChatMessage, mockMessage?: ChatMessage) => {
+    if (!chatId || !content.trim()) return null;
+    
+    // If this is a mock message (for AI responses), use it directly
+    if (mockMessage) {
+      const updatedMessages = [...messages, mockMessage];
+      setMessages(updatedMessages);
+      
+      // Save to storage
+      saveMessagesToStorage(updatedMessages);
+      return mockMessage;
+    }
+    
+    // Otherwise create a new user message
+    if (!user) return null;
     
     // Create new message
     const newMessage: ChatMessage = {
@@ -80,8 +93,15 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
     const updatedMessages = [...messages, newMessage];
     setMessages(updatedMessages);
     
-    // Update messages in storage
-    const storageKey = isGroup ? GROUP_MESSAGES_KEY : DIRECT_MESSAGES_KEY;
+    // Save to storage
+    saveMessagesToStorage(updatedMessages);
+    
+    return newMessage;
+  };
+
+  // Save messages to local storage
+  const saveMessagesToStorage = (messagesToSave: ChatMessage[]) => {
+    const storageKey = isAi ? AI_MESSAGES_KEY : DIRECT_MESSAGES_KEY;
     const storedMessages = localStorage.getItem(storageKey);
     let allMessages: Record<string, ChatMessage[]> = {};
     
@@ -93,10 +113,8 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
       }
     }
     
-    allMessages[chatId] = updatedMessages;
+    allMessages[chatId] = messagesToSave;
     localStorage.setItem(storageKey, JSON.stringify(allMessages));
-    
-    return newMessage;
   };
 
   // Delete a message
@@ -106,34 +124,18 @@ export const useMessages = (chatId: string, isGroup: boolean = false) => {
     setMessages(updatedMessages);
     
     // Update messages in storage
-    const storageKey = isGroup ? GROUP_MESSAGES_KEY : DIRECT_MESSAGES_KEY;
-    const storedMessages = localStorage.getItem(storageKey);
+    saveMessagesToStorage(updatedMessages);
     
-    if (storedMessages) {
-      try {
-        const allMessages = JSON.parse(storedMessages) as Record<string, ChatMessage[]>;
-        allMessages[chatId] = updatedMessages;
-        localStorage.setItem(storageKey, JSON.stringify(allMessages));
-        
-        toast({
-          title: "Message deleted",
-          description: "The message has been deleted"
-        });
-      } catch (error) {
-        console.error("Failed to delete message:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to delete message"
-        });
-      }
-    }
+    toast({
+      title: "Message deleted",
+      description: "The message has been deleted"
+    });
   };
 
   // Delete entire chat
   const deleteChat = async () => {
     // Delete all messages for this chat
-    const storageKey = isGroup ? GROUP_MESSAGES_KEY : DIRECT_MESSAGES_KEY;
+    const storageKey = isAi ? AI_MESSAGES_KEY : DIRECT_MESSAGES_KEY;
     const storedMessages = localStorage.getItem(storageKey);
     
     if (storedMessages) {
