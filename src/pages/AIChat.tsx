@@ -286,7 +286,7 @@ export default function AIChat() {
     }
     
     // Add personality-specific flair
-    const personalityAddition = `\n\nAs an AI with ${aiPersonality.style} communication style, I ${Math.random() > 0.5 ? "excel at" : "specialize in"} ${aiPersonality.strengths.join(", ")}. ${aiPersonality.quirks}. Let me know if you'd like more details or have other questions!`;
+    const personalityAddition = `\n\nAs an AI with ${aiPersonality.style} communication style, I ${Math.random() > 0.5 ? "excel at" : "specialize in"} ${aiPersonality.strengths.join(", ")}. Is there anything specific you'd like to know more about?`;
     
     return response + personalityAddition;
   };
@@ -580,7 +580,7 @@ export default function AIChat() {
                   <p className="text-muted-foreground">No messages found matching "{searchText}"</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] p-4 text-center">
                   <Avatar className="h-16 w-16 mb-4">
                     <AvatarImage src={ai.avatar} alt={ai.name} />
                     <AvatarFallback>
@@ -641,7 +641,7 @@ export default function AIChat() {
 
       {/* AI Info Dialog */}
       <Dialog open={showAiInfo} onOpenChange={setShowAiInfo}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>About {ai.name}</DialogTitle>
             <DialogDescription>
@@ -673,6 +673,28 @@ export default function AIChat() {
                     {capability}
                   </Badge>
                 ))}
+              </div>
+              
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">What can this AI do?</h4>
+                <ul className="text-sm space-y-2">
+                  <li className="flex items-start">
+                    <span className="inline-block w-5 text-center mr-2">•</span>
+                    <span>Answer questions and provide information</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="inline-block w-5 text-center mr-2">•</span>
+                    <span>Generate creative content like stories and poems</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="inline-block w-5 text-center mr-2">•</span>
+                    <span>Help with technical problems and coding tasks</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="inline-block w-5 text-center mr-2">•</span>
+                    <span>Assist with various tasks based on its capabilities</span>
+                  </li>
+                </ul>
               </div>
               
               <div className="flex gap-2 pt-6">

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { z } from "zod";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { AuthError } from "@supabase/supabase-js";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -28,6 +29,7 @@ export default function Login() {
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
+    server?: string;
   }>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,6 +45,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrors({});
     
     try {
       // Validate form data
@@ -67,8 +70,16 @@ export default function Login() {
           }
         });
         setErrors(fieldErrors);
+      } else if (error instanceof AuthError) {
+        // Handle Supabase auth errors
+        setErrors({
+          server: error.message || "Login failed. Please check your credentials and try again."
+        });
       } else {
-        // Handle other errors (e.g., API errors)
+        // Handle other errors
+        setErrors({
+          server: "Login failed. Please check your credentials and try again."
+        });
         toast({
           variant: "destructive",
           title: "Login failed",
@@ -97,6 +108,12 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {errors.server && (
+            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              {errors.server}
+            </div>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input

@@ -1,5 +1,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { User as SupabaseUser, AuthError } from "@supabase/supabase-js";
 
 export type UserStatus = "online" | "away" | "busy" | "offline";
 
@@ -54,7 +56,7 @@ interface AuthContextType {
   ais: AI[];
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   updateAvatar: (avatarUrl: string) => Promise<void>;
   updateStatus: (status: UserStatus, message?: string) => Promise<void>;
@@ -67,12 +69,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Storage keys
-const USER_STORAGE_KEY = "whisper-auth-user";
-const CONTACTS_STORAGE_KEY = "whisper-contacts";
-const GROUPS_STORAGE_KEY = "whisper-groups";
-const AIS_STORAGE_KEY = "whisper-ais";
-
 // Default avatar URLs
 const DEFAULT_AVATARS = [
   "https://images.unsplash.com/photo-1649972904349-6e44c42644a7",
@@ -80,36 +76,6 @@ const DEFAULT_AVATARS = [
   "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952",
   "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1",
   "https://images.unsplash.com/photo-1582562124811-c09040d0a901"
-];
-
-// Mock contacts
-const INITIAL_CONTACTS: Contact[] = [
-  { id: "user_1", name: "Alex Johnson", email: "alex@example.com", avatar: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7", status: "online", lastActive: "Now" },
-  { id: "user_2", name: "Maria Garcia", email: "maria@example.com", avatar: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158", status: "offline", lastActive: "1h ago" },
-  { id: "user_3", name: "James Smith", email: "james@example.com", avatar: "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952", status: "away", lastActive: "30m ago" },
-  { id: "user_4", name: "Emma Wilson", email: "emma@example.com", avatar: "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1", status: "online", lastActive: "Now" }
-];
-
-// Mock groups
-const INITIAL_GROUPS: ChatGroup[] = [
-  { 
-    id: "group_1", 
-    name: "Design Team", 
-    avatar: "https://images.unsplash.com/photo-1582562124811-c09040d0a901", 
-    description: "Our design team's discussions", 
-    members: ["user_1", "user_2", "user_3"], 
-    createdBy: "user_1",
-    createdAt: new Date().toISOString()
-  },
-  { 
-    id: "group_2", 
-    name: "Project Alpha", 
-    avatar: "https://images.unsplash.com/photo-1582562124811-c09040d0a901", 
-    description: "Coordination for Project Alpha", 
-    members: ["user_1", "user_3"], 
-    createdBy: "user_3",
-    createdAt: new Date().toISOString()
-  }
 ];
 
 // AI assistants
@@ -190,44 +156,193 @@ const INITIAL_AIS: AI[] = [
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [groups, setGroups] = useState<ChatGroup[]>([]);
-  const [ais, setAis] = useState<AI[]>([]);
+  const [ais, setAis] = useState<AI[]>(INITIAL_AIS);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load and set initial auth state
   useEffect(() => {
-    // Load stored data on mount
-    const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-    const storedContacts = localStorage.getItem(CONTACTS_STORAGE_KEY);
-    const storedGroups = localStorage.getItem(GROUPS_STORAGE_KEY);
-    const storedAis = localStorage.getItem(AIS_STORAGE_KEY);
-    
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    
-    if (storedContacts) {
-      setContacts(JSON.parse(storedContacts));
-    } else {
-      setContacts(INITIAL_CONTACTS);
-      localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(INITIAL_CONTACTS));
-    }
-    
-    if (storedGroups) {
-      setGroups(JSON.parse(storedGroups));
-    } else {
-      setGroups(INITIAL_GROUPS);
-      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(INITIAL_GROUPS));
-    }
-    
-    if (storedAis) {
-      setAis(JSON.parse(storedAis));
-    } else {
-      setAis(INITIAL_AIS);
-      localStorage.setItem(AIS_STORAGE_KEY, JSON.stringify(INITIAL_AIS));
-    }
-    
-    setIsLoading(false);
+    const fetchInitialSession = async () => {
+      try {
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          const userResponse = await supabase.auth.getUser();
+          const supaUser = userResponse.data.user;
+          setSupabaseUser(supaUser);
+          
+          if (supaUser) {
+            // Fetch user profile from the profiles table
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', supaUser.id)
+              .single();
+            
+            if (profileError) {
+              console.error("Error fetching profile:", profileError);
+            } else if (profileData) {
+              // Fetch contacts
+              const { data: contactsData, error: contactsError } = await supabase
+                .from('contacts')
+                .select(`
+                  contact_id,
+                  profiles:contact_id(id, username, avatar, status, status_message, created_at)
+                `)
+                .eq('user_id', supaUser.id);
+              
+              const friends = contactsData ? contactsData.map(item => item.contact_id) || [] : [];
+              const contactsList: Contact[] = [];
+              
+              if (contactsData && contactsData.length > 0) {
+                contactsData.forEach(item => {
+                  if (item.profiles) {
+                    const profile = item.profiles;
+                    contactsList.push({
+                      id: profile.id,
+                      name: profile.username,
+                      email: "", // Email is protected and not accessible
+                      avatar: profile.avatar || DEFAULT_AVATARS[0],
+                      status: profile.status as UserStatus || "offline",
+                      statusMessage: profile.status_message,
+                      lastActive: profile.last_active_at || "Never"
+                    });
+                  }
+                });
+              }
+              
+              setContacts(contactsList);
+              
+              // Create user object
+              const userData: User = {
+                id: supaUser.id,
+                username: profileData.username,
+                email: supaUser.email || "",
+                avatar: profileData.avatar || DEFAULT_AVATARS[0],
+                status: profileData.status as UserStatus || "online",
+                statusMessage: profileData.status_message,
+                bio: profileData.bio || "Hi there! I'm using Whisper.",
+                createdAt: profileData.created_at,
+                friends: friends
+              };
+              
+              setUser(userData);
+            }
+            
+            // Fetch groups
+            const { data: groupsData, error: groupsError } = await supabase
+              .from('groups')
+              .select(`
+                id,
+                name,
+                avatar,
+                description,
+                created_by,
+                created_at,
+                members:group_members(user_id)
+              `)
+              .or(`created_by.eq.${supaUser.id},members.user_id.eq.${supaUser.id}`);
+            
+            if (!groupsError && groupsData) {
+              const formattedGroups: ChatGroup[] = groupsData.map(group => ({
+                id: group.id,
+                name: group.name,
+                avatar: group.avatar || DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)],
+                description: group.description,
+                members: group.members.map((member: any) => member.user_id),
+                createdBy: group.created_by,
+                createdAt: group.created_at
+              }));
+              
+              setGroups(formattedGroups);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Session fetch error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialSession();
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          setSupabaseUser(session.user);
+          
+          // Fetch the user profile
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!error && profile) {
+            // Fetch contacts
+            const { data: contactsData } = await supabase
+              .from('contacts')
+              .select(`
+                contact_id,
+                profiles:contact_id(id, username, avatar, status, status_message, created_at)
+              `)
+              .eq('user_id', session.user.id);
+            
+            const friends = contactsData ? contactsData.map(item => item.contact_id) || [] : [];
+            const contactsList: Contact[] = [];
+            
+            if (contactsData && contactsData.length > 0) {
+              contactsData.forEach(item => {
+                if (item.profiles) {
+                  const profile = item.profiles;
+                  contactsList.push({
+                    id: profile.id,
+                    name: profile.username,
+                    email: "", // Email is protected and not accessible
+                    avatar: profile.avatar || DEFAULT_AVATARS[0],
+                    status: profile.status as UserStatus || "offline",
+                    statusMessage: profile.status_message,
+                    lastActive: profile.last_active_at || "Never"
+                  });
+                }
+              });
+            }
+            
+            setContacts(contactsList);
+            
+            // Create user object
+            const userData: User = {
+              id: session.user.id,
+              username: profile.username,
+              email: session.user.email || "",
+              avatar: profile.avatar || DEFAULT_AVATARS[0],
+              status: profile.status as UserStatus || "online",
+              statusMessage: profile.status_message,
+              bio: profile.bio || "Hi there! I'm using Whisper.",
+              createdAt: profile.created_at,
+              friends: friends
+            };
+            
+            setUser(userData);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSupabaseUser(null);
+          setContacts([]);
+          setGroups([]);
+        }
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const getRandomAvatar = () => {
@@ -238,25 +353,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // Check if user exists in contacts
-      const existingContact = contacts.find(contact => contact.email.toLowerCase() === email.toLowerCase());
-      
-      const mockUser: User = {
-        id: existingContact?.id || `user_${Date.now()}`,
-        username: existingContact?.name || email.split('@')[0],
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        avatar: existingContact?.avatar || getRandomAvatar(),
-        status: "online",
-        statusMessage: "Available",
-        bio: "Hi there! I'm using Whisper.",
-        createdAt: new Date().toISOString(),
-        friends: ["user_1", "user_2", "user_3", "user_4"]
-      };
-
-      setUser(mockUser);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mockUser));
+        password,
+      });
+      
+      if (error) throw error;
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -268,40 +370,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const register = async (username: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      const userId = `user_${Date.now()}`;
-      const avatar = getRandomAvatar();
-      
-      const mockUser: User = {
-        id: userId,
-        username,
+      // Try to sign up the user
+      const { data, error } = await supabase.auth.signUp({
         email,
-        avatar,
-        status: "online",
-        statusMessage: "Available",
-        bio: "Hi there! I'm using Whisper.",
-        createdAt: new Date().toISOString(),
-        friends: [] // New users start with no friends
-      };
-
-      // Add the new user to contacts as well
-      const newContact: Contact = {
-        id: userId,
-        name: username,
-        email,
-        avatar,
-        status: "online",
-        statusMessage: "Available",
-        lastActive: "Now"
-      };
+        password,
+        options: {
+          data: {
+            username,
+          },
+        },
+      });
       
-      const updatedContacts = [...contacts, newContact];
-      setContacts(updatedContacts);
-      localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(updatedContacts));
-
-      setUser(mockUser);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mockUser));
+      if (error) throw error;
     } catch (error) {
       console.error("Registration failed:", error);
       throw error;
@@ -310,32 +390,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem(USER_STORAGE_KEY);
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const updateProfile = async (data: Partial<User>) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      if (user) {
-        const updatedUser = { ...user, ...data };
-        setUser(updatedUser);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-        
-        // If the username changed, update it in contacts too
-        if (data.username) {
-          const updatedContacts = contacts.map(contact => 
-            contact.id === user.id 
-              ? { ...contact, name: data.username as string } 
-              : contact
-          );
-          setContacts(updatedContacts);
-          localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(updatedContacts));
+      const updates = {
+        username: data.username,
+        bio: data.bio,
+        status_message: data.statusMessage,
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Remove undefined values
+      Object.keys(updates).forEach(key => {
+        if (updates[key as keyof typeof updates] === undefined) {
+          delete updates[key as keyof typeof updates];
         }
-      }
+      });
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // Update local user state
+      const updatedUser = { ...user, ...data };
+      setUser(updatedUser);
     } catch (error) {
       console.error("Profile update failed:", error);
       throw error;
@@ -347,22 +438,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updateAvatar = async (avatarUrl: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      if (user) {
-        const updatedUser = { ...user, avatar: avatarUrl };
-        setUser(updatedUser);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-        
-        // Update avatar in contacts too
-        const updatedContacts = contacts.map(contact => 
-          contact.id === user.id 
-            ? { ...contact, avatar: avatarUrl } 
-            : contact
-        );
-        setContacts(updatedContacts);
-        localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(updatedContacts));
-      }
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar: avatarUrl })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // Update local user state
+      setUser({ ...user, avatar: avatarUrl });
     } catch (error) {
       console.error("Avatar update failed:", error);
       throw error;
@@ -374,31 +460,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updateStatus = async (status: UserStatus, message?: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      if (user) {
-        const updatedUser = { 
-          ...user, 
-          status, 
-          statusMessage: message || user.statusMessage 
-        };
-        setUser(updatedUser);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-        
-        // Update status in contacts too
-        const updatedContacts = contacts.map(contact => 
-          contact.id === user.id 
-            ? { 
-                ...contact, 
-                status, 
-                statusMessage: message || contact.statusMessage,
-                lastActive: status === "offline" ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"
-              } 
-            : contact
-        );
-        setContacts(updatedContacts);
-        localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(updatedContacts));
+      const updates: any = { status };
+      if (message !== undefined) {
+        updates.status_message = message;
       }
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // Update local user state
+      setUser({
+        ...user,
+        status,
+        statusMessage: message !== undefined ? message : user.statusMessage
+      });
     } catch (error) {
       console.error("Status update failed:", error);
       throw error;
@@ -410,37 +491,70 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const addContact = async (email: string): Promise<Contact> => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      // Check if contact already exists
-      const existingContact = contacts.find(c => c.email.toLowerCase() === email.toLowerCase());
+      // Find user by email
+      const { data: foundUsers, error: searchError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          username,
+          avatar,
+          status,
+          status_message,
+          created_at,
+          users:id(email)
+        `)
+        .eq('users.email', email)
+        .single();
+      
+      if (searchError || !foundUsers) {
+        throw new Error("User not found");
+      }
+      
+      // Check if already a contact
+      const { data: existingContact, error: contactCheckError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('contact_id', foundUsers.id)
+        .maybeSingle();
+      
       if (existingContact) {
         throw new Error("Contact already exists");
       }
       
-      // Create new contact
+      // Add contact
+      const { error: insertError } = await supabase
+        .from('contacts')
+        .insert({
+          user_id: user.id,
+          contact_id: foundUsers.id
+        });
+      
+      if (insertError) throw insertError;
+      
+      // Create new contact object
       const newContact: Contact = {
-        id: `user_${Date.now()}`,
-        name: email.split('@')[0],
-        email,
-        avatar: getRandomAvatar(),
-        status: "offline",
+        id: foundUsers.id,
+        name: foundUsers.username,
+        email: email,
+        avatar: foundUsers.avatar || getRandomAvatar(),
+        status: foundUsers.status as UserStatus || "offline",
+        statusMessage: foundUsers.status_message,
         lastActive: "Never"
       };
       
+      // Update contacts list
       const updatedContacts = [...contacts, newContact];
       setContacts(updatedContacts);
-      localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(updatedContacts));
       
-      // Add to user's friends
-      if (user) {
-        const updatedUser = { 
-          ...user, 
-          friends: [...user.friends, newContact.id] 
-        };
-        setUser(updatedUser);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-      }
+      // Update user's friends list
+      const updatedUser = {
+        ...user,
+        friends: [...user.friends, newContact.id]
+      };
+      setUser(updatedUser);
       
       return newContact;
     } catch (error) {
@@ -454,22 +568,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const removeContact = async (contactId: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      // Remove from contacts
+      // Remove from contacts table
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('contact_id', contactId);
+      
+      if (error) throw error;
+      
+      // Update contacts state
       const updatedContacts = contacts.filter(c => c.id !== contactId);
       setContacts(updatedContacts);
-      localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(updatedContacts));
       
-      // Remove from user's friends
-      if (user) {
-        const updatedUser = { 
-          ...user, 
-          friends: user.friends.filter(id => id !== contactId) 
-        };
-        setUser(updatedUser);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-      }
+      // Update user's friends list
+      const updatedUser = {
+        ...user,
+        friends: user.friends.filter(id => id !== contactId)
+      };
+      setUser(updatedUser);
     } catch (error) {
       console.error("Remove contact failed:", error);
       throw error;
@@ -481,26 +600,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const createGroup = async (name: string, members: string[]): Promise<ChatGroup> => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      if (!user) {
-        throw new Error("You must be logged in to create a group");
-      }
+      // Insert group
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert({
+          name,
+          description: `${name} group chat`,
+          created_by: user.id,
+          avatar: getRandomAvatar()
+        })
+        .select()
+        .single();
       
-      // Create a new group
+      if (groupError || !groupData) throw groupError || new Error("Failed to create group");
+      
+      // Add members to group (including creator)
+      const memberInserts = [...members, user.id].map(memberId => ({
+        group_id: groupData.id,
+        user_id: memberId
+      }));
+      
+      const { error: membersError } = await supabase
+        .from('group_members')
+        .insert(memberInserts);
+      
+      if (membersError) throw membersError;
+      
+      // Create new group object
       const newGroup: ChatGroup = {
-        id: `group_${Date.now()}`,
-        name,
-        avatar: getRandomAvatar(),
-        description: `${name} group chat`,
-        members: [...members, user.id], // Add the current user
+        id: groupData.id,
+        name: groupData.name,
+        avatar: groupData.avatar || getRandomAvatar(),
+        description: groupData.description,
+        members: [...members, user.id],
         createdBy: user.id,
-        createdAt: new Date().toISOString()
+        createdAt: groupData.created_at
       };
       
-      const updatedGroups = [...groups, newGroup];
-      setGroups(updatedGroups);
-      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updatedGroups));
+      // Update groups state
+      setGroups([...groups, newGroup]);
       
       return newGroup;
     } catch (error) {
@@ -514,49 +654,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const leaveGroup = async (groupId: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      if (!user) {
-        throw new Error("You must be logged in to leave a group");
-      }
-      
-      // Find the group
       const group = groups.find(g => g.id === groupId);
-      if (!group) {
-        throw new Error("Group not found");
-      }
+      if (!group) throw new Error("Group not found");
       
-      // Check if user is part of the group
-      if (!group.members.includes(user.id)) {
-        throw new Error("You are not a member of this group");
-      }
-      
-      // If user is the creator of the group and there are other members,
-      // transfer ownership to the next member
-      let updatedGroups;
+      // If user is the creator and there are other members, transfer ownership
       if (group.createdBy === user.id && group.members.length > 1) {
-        const newOwner = group.members.find(id => id !== user.id) || group.members[0];
-        const updatedGroup = {
-          ...group,
-          members: group.members.filter(id => id !== user.id),
-          createdBy: newOwner
-        };
-        updatedGroups = groups.map(g => g.id === groupId ? updatedGroup : g);
-      } 
-      // If user is the only member or not the creator, just remove them from the group
-      // or delete the group if they're the only member
-      else if (group.members.length === 1) {
-        updatedGroups = groups.filter(g => g.id !== groupId);
-      } else {
-        const updatedGroup = {
-          ...group,
-          members: group.members.filter(id => id !== user.id)
-        };
-        updatedGroups = groups.map(g => g.id === groupId ? updatedGroup : g);
+        const newOwnerId = group.members.find(id => id !== user.id);
+        
+        if (newOwnerId) {
+          // Update group owner
+          const { error: updateError } = await supabase
+            .from('groups')
+            .update({ created_by: newOwnerId })
+            .eq('id', groupId);
+          
+          if (updateError) throw updateError;
+        }
       }
       
+      // Remove user from group members
+      const { error: removeError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', user.id);
+      
+      if (removeError) throw removeError;
+      
+      // If user was the only member, delete the group
+      if (group.members.length === 1 && group.members[0] === user.id) {
+        await supabase
+          .from('groups')
+          .delete()
+          .eq('id', groupId);
+      }
+      
+      // Update groups state
+      const updatedGroups = groups.filter(g => g.id !== groupId);
       setGroups(updatedGroups);
-      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updatedGroups));
     } catch (error) {
       console.error("Leave group failed:", error);
       throw error;
@@ -568,17 +705,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const addToGroup = async (groupId: string, userId: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      if (!user) {
-        throw new Error("You must be logged in to add members");
-      }
-      
-      // Find the group
       const group = groups.find(g => g.id === groupId);
-      if (!group) {
-        throw new Error("Group not found");
-      }
+      if (!group) throw new Error("Group not found");
       
       // Check if user is the creator of the group
       if (group.createdBy !== user.id) {
@@ -586,25 +716,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // Check if the user to be added exists
-      const userToAdd = contacts.find(c => c.id === userId);
-      if (!userToAdd) {
+      const userExists = contacts.find(c => c.id === userId);
+      if (!userExists) {
         throw new Error("User not found");
       }
       
-      // Check if the user is already a member
+      // Check if user is already a member
       if (group.members.includes(userId)) {
         throw new Error("User is already a member of this group");
       }
       
-      // Add the user to the group
-      const updatedGroup = {
-        ...group,
-        members: [...group.members, userId]
-      };
+      // Add user to group
+      const { error } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: groupId,
+          user_id: userId
+        });
       
-      const updatedGroups = groups.map(g => g.id === groupId ? updatedGroup : g);
+      if (error) throw error;
+      
+      // Update groups state
+      const updatedGroups = groups.map(g => {
+        if (g.id === groupId) {
+          return {
+            ...g,
+            members: [...g.members, userId]
+          };
+        }
+        return g;
+      });
+      
       setGroups(updatedGroups);
-      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(updatedGroups));
     } catch (error) {
       console.error("Add to group failed:", error);
       throw error;

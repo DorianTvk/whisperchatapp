@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { z } from "zod";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { AuthError } from "@supabase/supabase-js";
 
 const registerSchema = z.object({
   username: z.string().min(3, { message: "Username must be at least 3 characters" }),
@@ -37,6 +38,7 @@ export default function Register() {
     email?: string;
     password?: string;
     confirmPassword?: string;
+    server?: string;
   }>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,6 +54,7 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrors({});
     
     try {
       // Validate form data
@@ -80,8 +83,22 @@ export default function Register() {
           }
         });
         setErrors(fieldErrors);
+      } else if (error instanceof AuthError) {
+        // Handle Supabase auth errors
+        if (error.message.includes("already registered")) {
+          setErrors({
+            email: "This email is already registered. Please use another email or try logging in."
+          });
+        } else {
+          setErrors({
+            server: error.message || "Registration failed. Please try again with different information."
+          });
+        }
       } else {
-        // Handle other errors (e.g., API errors)
+        // Handle other errors
+        setErrors({
+          server: "Registration failed. Please try again with different information."
+        });
         toast({
           variant: "destructive",
           title: "Registration failed",
@@ -110,6 +127,12 @@ export default function Register() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errors.server && (
+            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              {errors.server}
+            </div>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
             <Input
