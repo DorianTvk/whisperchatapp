@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "@/context/auth-context";
@@ -196,7 +197,7 @@ export const useMessages = (chatId: string, isAi: boolean = false) => {
     // Otherwise create a new user message
     try {
       // Create message object
-      const messageData = {
+      const messageData: any = {
         sender_id: user.id,
         receiver_id: chatId,
         content: content.trim(),

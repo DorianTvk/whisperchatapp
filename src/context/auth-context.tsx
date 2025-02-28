@@ -200,7 +200,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               if (contactsData && contactsData.length > 0) {
                 contactsData.forEach(item => {
                   if (item.profiles) {
-                    const profile = item.profiles;
+                    const profile = item.profiles as any;
                     contactsList.push({
                       id: profile.id,
                       name: profile.username,
@@ -208,7 +208,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                       avatar: profile.avatar || DEFAULT_AVATARS[0],
                       status: profile.status as UserStatus || "offline",
                       statusMessage: profile.status_message,
-                      lastActive: profile.last_active_at || "Never"
+                      lastActive: profile.created_at || "Never"
                     });
                   }
                 });
@@ -299,7 +299,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (contactsData && contactsData.length > 0) {
               contactsData.forEach(item => {
                 if (item.profiles) {
-                  const profile = item.profiles;
+                  const profile = item.profiles as any;
                   contactsList.push({
                     id: profile.id,
                     name: profile.username,
@@ -307,7 +307,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     avatar: profile.avatar || DEFAULT_AVATARS[0],
                     status: profile.status as UserStatus || "offline",
                     statusMessage: profile.status_message,
-                    lastActive: profile.last_active_at || "Never"
+                    lastActive: profile.created_at || "Never"
                   });
                 }
               });

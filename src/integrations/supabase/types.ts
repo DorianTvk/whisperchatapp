@@ -9,7 +9,87 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      contacts: {
+        Row: {
+          contact_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          id: string
+          is_ai_chat: boolean | null
+          is_read: boolean | null
+          receiver_id: string
+          sender_id: string
+          timestamp: string | null
+        }
+        Insert: {
+          content: string
+          id?: string
+          is_ai_chat?: boolean | null
+          is_read?: boolean | null
+          receiver_id: string
+          sender_id: string
+          timestamp?: string | null
+        }
+        Update: {
+          content?: string
+          id?: string
+          is_ai_chat?: boolean | null
+          is_read?: boolean | null
+          receiver_id?: string
+          sender_id?: string
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar: string | null
+          bio: string | null
+          created_at: string | null
+          id: string
+          status: string | null
+          status_message: string | null
+          username: string
+        }
+        Insert: {
+          avatar?: string | null
+          bio?: string | null
+          created_at?: string | null
+          id: string
+          status?: string | null
+          status_message?: string | null
+          username: string
+        }
+        Update: {
+          avatar?: string | null
+          bio?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          status_message?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
