@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ModeToggle } from "@/components/theme-provider";
+import { ModeToggle } from "@/components/mode-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,

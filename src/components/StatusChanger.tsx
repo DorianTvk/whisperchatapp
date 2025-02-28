@@ -37,29 +37,27 @@ export default function StatusChanger({ trigger }: StatusChangerProps) {
   const handleSelectStatus = async (status: UserStatus) => {
     setSelectedStatus(status);
     
-    // For all statuses except custom, apply immediately
-    if (status !== "custom") {
-      try {
-        setIsLoading(true);
-        await updateStatus(status);
-        toast({
-          title: "Status updated",
-          description: `Your status is now ${status}`,
-        });
-        setOpen(false);
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to update status",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      // For custom status, open the custom status dialog
-      setCustomStatusOpen(true);
+    try {
+      setIsLoading(true);
+      await updateStatus(status);
+      toast({
+        title: "Status updated",
+        description: `Your status is now ${status}`,
+      });
+      setOpen(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update status",
+      });
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleOpenCustomStatus = () => {
+    setCustomStatusOpen(true);
   };
 
   const handleSaveCustomStatus = async () => {
@@ -106,6 +104,13 @@ export default function StatusChanger({ trigger }: StatusChangerProps) {
               )}
             </DropdownMenuItem>
           ))}
+          <DropdownMenuItem 
+            onClick={handleOpenCustomStatus}
+            disabled={isLoading}
+          >
+            <Circle className="mr-2 h-4 w-4 text-primary" />
+            <span className="flex-1">Custom Status</span>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
