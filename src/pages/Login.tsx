@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -34,11 +35,20 @@ export default function Login() {
 
   useEffect(() => {
     console.log("Login useEffect - isAuthenticated:", isAuthenticated);
-    if (isAuthenticated || loginSuccess) {
-      console.log("Redirecting to dashboard from Login");
+    // Check if user is already authenticated
+    if (isAuthenticated) {
+      console.log("User already authenticated, redirecting to dashboard");
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, loginSuccess, navigate]);
+  }, [isAuthenticated, navigate]);
+
+  // Separate effect for handling post-login navigation
+  useEffect(() => {
+    if (loginSuccess) {
+      console.log("Login success detected, navigating to dashboard");
+      navigate('/dashboard', { replace: true });
+    }
+  }, [loginSuccess, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -64,11 +74,10 @@ export default function Login() {
         description: "Welcome back to Whisper",
       });
       
+      console.log("Login successful, setting success state");
       setLoginSuccess(true);
-      console.log("Login successful, navigating to dashboard");
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 500);
+      // Immediate navigation attempt
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       if (error instanceof z.ZodError) {

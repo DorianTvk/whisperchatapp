@@ -9,17 +9,15 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
   const navigate = useNavigate();
   const location = useLocation();
 
+  console.log("ProtectedRoute - isAuthenticated:", isAuthenticated, "isLoading:", isLoading);
+
+  // Use an effect with immediate check to improve performance
   useEffect(() => {
-    // If not loading and authenticated, ensure we stay on the protected route
-    if (!isLoading && isAuthenticated) {
-      console.log("User is authenticated, rendering protected content");
+    if (!isLoading && !isAuthenticated) {
+      console.log("User not authenticated, redirecting to login");
+      navigate("/login", { replace: true });
     }
-    // If not loading and not authenticated, redirect to login
-    else if (!isLoading && !isAuthenticated) {
-      console.log("User is not authenticated, redirecting to login");
-      navigate("/login", { replace: true, state: { from: location } });
-    }
-  }, [isAuthenticated, isLoading, navigate, location]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   if (isLoading) {
     return (
@@ -29,10 +27,12 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
     );
   }
 
+  // Immediate return for unauthenticated users
   if (!isAuthenticated) {
-    console.log("Redirecting unauthenticated user to login");
+    console.log("Immediate redirect for unauthenticated user");
     return <Navigate to="/login" replace />;
   }
 
+  // Only render children if authenticated
   return children;
 }
