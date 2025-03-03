@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { z } from "zod";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { AuthError } from "@supabase/supabase-js";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -20,7 +19,6 @@ export default function Login() {
   const { toast } = useToast();
   const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [loginSuccess, setLoginSuccess] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -33,22 +31,11 @@ export default function Login() {
     server?: string;
   }>({});
 
-  useEffect(() => {
-    console.log("Login useEffect - isAuthenticated:", isAuthenticated);
-    // Check if user is already authenticated
-    if (isAuthenticated) {
-      console.log("User already authenticated, redirecting to dashboard");
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
-
-  // Separate effect for handling post-login navigation
-  useEffect(() => {
-    if (loginSuccess) {
-      console.log("Login success detected, navigating to dashboard");
-      navigate('/dashboard', { replace: true });
-    }
-  }, [loginSuccess, navigate]);
+  // Immediate redirect if already authenticated
+  if (isAuthenticated) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -74,9 +61,6 @@ export default function Login() {
         description: "Welcome back to Whisper",
       });
       
-      console.log("Login successful, setting success state");
-      setLoginSuccess(true);
-      // Immediate navigation attempt
       navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
@@ -88,10 +72,6 @@ export default function Login() {
           }
         });
         setErrors(fieldErrors);
-      } else if (error instanceof AuthError) {
-        setErrors({
-          server: error.message || "Login failed. Please check your credentials and try again."
-        });
       } else {
         setErrors({
           server: "Login failed. Please check your credentials and try again."
