@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +19,7 @@ export default function Login() {
   const { toast } = useToast();
   const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -32,12 +32,13 @@ export default function Login() {
     server?: string;
   }>({});
 
-  // If already authenticated, redirect to dashboard
-  if (isAuthenticated) {
-    console.log("User already authenticated, redirecting to dashboard");
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    console.log("Login useEffect - isAuthenticated:", isAuthenticated);
+    if (isAuthenticated || loginSuccess) {
+      console.log("Redirecting to dashboard from Login");
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, loginSuccess, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -63,8 +64,11 @@ export default function Login() {
         description: "Welcome back to Whisper",
       });
       
+      setLoginSuccess(true);
       console.log("Login successful, navigating to dashboard");
-      navigate('/dashboard', { replace: true });
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 500);
     } catch (error) {
       console.error("Login error:", error);
       if (error instanceof z.ZodError) {
