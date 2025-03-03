@@ -66,7 +66,8 @@ export default function Login() {
         description: "Welcome back to Whisper",
       });
       
-      // The useEffect will handle navigation when isAuthenticated changes
+      // Force navigation to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error("Login error:", error);
       if (error instanceof z.ZodError) {

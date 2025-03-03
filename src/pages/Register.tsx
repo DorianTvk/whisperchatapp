@@ -79,7 +79,8 @@ export default function Register() {
         description: "Welcome to Whisper",
       });
       
-      // The useEffect will handle navigation when isAuthenticated changes
+      // Force navigation to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error("Registration error:", error);
       if (error instanceof z.ZodError) {
