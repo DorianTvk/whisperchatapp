@@ -1,12 +1,24 @@
 
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/auth-context";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 export default function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Fast loading state
+  console.log("ProtectedRoute - isAuthenticated:", isAuthenticated, "isLoading:", isLoading);
+
+  // Use an effect with immediate check to improve performance
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      console.log("User not authenticated, redirecting to login");
+      navigate("/login", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -15,11 +27,12 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
     );
   }
 
-  // Immediate redirect for unauthenticated users
+  // Immediate return for unauthenticated users
   if (!isAuthenticated) {
+    console.log("Immediate redirect for unauthenticated user");
     return <Navigate to="/login" replace />;
   }
 
-  // Render children immediately when authenticated
+  // Only render children if authenticated
   return children;
 }
