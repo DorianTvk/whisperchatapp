@@ -10,8 +10,13 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
   const location = useLocation();
 
   useEffect(() => {
+    // If not loading and authenticated, ensure we stay on the protected route
+    if (!isLoading && isAuthenticated) {
+      console.log("User is authenticated, rendering protected content");
+    }
     // If not loading and not authenticated, redirect to login
-    if (!isLoading && !isAuthenticated) {
+    else if (!isLoading && !isAuthenticated) {
+      console.log("User is not authenticated, redirecting to login");
       navigate("/login", { replace: true, state: { from: location } });
     }
   }, [isAuthenticated, isLoading, navigate, location]);
@@ -25,6 +30,7 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
   }
 
   if (!isAuthenticated) {
+    console.log("Redirecting unauthenticated user to login");
     return <Navigate to="/login" replace />;
   }
 

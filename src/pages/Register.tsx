@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,7 @@ export default function Register() {
   const { toast } = useToast();
   const { register, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   
   const [formData, setFormData] = useState({
     username: "",
@@ -41,18 +41,18 @@ export default function Register() {
     server?: string;
   }>({});
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    console.log("Register useEffect - isAuthenticated:", isAuthenticated);
+    if (isAuthenticated || registrationSuccess) {
+      console.log("Redirecting to dashboard from Register");
+      navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, registrationSuccess, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     
-    // Clear error when user types
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -64,10 +64,8 @@ export default function Register() {
     setErrors({});
     
     try {
-      // Validate form data
       const validatedData = registerSchema.parse(formData);
       
-      // Attempt registration
       await register(
         validatedData.username,
         validatedData.email,
@@ -79,12 +77,14 @@ export default function Register() {
         description: "Welcome to Whisper",
       });
       
-      // Force navigation to dashboard
-      navigate('/dashboard');
+      setRegistrationSuccess(true);
+      console.log("Registration successful, navigating to dashboard");
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 500);
     } catch (error) {
       console.error("Registration error:", error);
       if (error instanceof z.ZodError) {
-        // Handle validation errors
         const fieldErrors: Record<string, string> = {};
         error.errors.forEach((err) => {
           if (err.path[0]) {
@@ -93,7 +93,6 @@ export default function Register() {
         });
         setErrors(fieldErrors);
       } else if (error instanceof AuthError) {
-        // Handle Supabase auth errors
         if (error.message.includes("already registered")) {
           setErrors({
             email: "This email is already registered. Please use another email or try logging in."
@@ -104,7 +103,6 @@ export default function Register() {
           });
         }
       } else {
-        // Handle other errors
         setErrors({
           server: "Registration failed. Please try again with different information."
         });

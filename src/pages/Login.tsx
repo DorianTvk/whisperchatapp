@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ export default function Login() {
   const { toast } = useToast();
   const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -32,18 +32,18 @@ export default function Login() {
     server?: string;
   }>({});
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    console.log("Login useEffect - isAuthenticated:", isAuthenticated);
+    if (isAuthenticated || loginSuccess) {
+      console.log("Redirecting to dashboard from Login");
+      navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, loginSuccess, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     
-    // Clear error when user types
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -55,10 +55,8 @@ export default function Login() {
     setErrors({});
     
     try {
-      // Validate form data
       const validatedData = loginSchema.parse(formData);
       
-      // Attempt login
       await login(validatedData.email, validatedData.password);
       
       toast({
@@ -66,12 +64,14 @@ export default function Login() {
         description: "Welcome back to Whisper",
       });
       
-      // Force navigation to dashboard
-      navigate('/dashboard');
+      setLoginSuccess(true);
+      console.log("Login successful, navigating to dashboard");
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 500);
     } catch (error) {
       console.error("Login error:", error);
       if (error instanceof z.ZodError) {
-        // Handle validation errors
         const fieldErrors: Record<string, string> = {};
         error.errors.forEach((err) => {
           if (err.path[0]) {
@@ -80,12 +80,10 @@ export default function Login() {
         });
         setErrors(fieldErrors);
       } else if (error instanceof AuthError) {
-        // Handle Supabase auth errors
         setErrors({
           server: error.message || "Login failed. Please check your credentials and try again."
         });
       } else {
-        // Handle other errors
         setErrors({
           server: "Login failed. Please check your credentials and try again."
         });
