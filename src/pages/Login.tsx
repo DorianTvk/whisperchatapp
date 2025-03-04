@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -52,18 +53,43 @@ export default function Login() {
     setErrors({});
     
     try {
+      // Quick pre-validation before sending request
+      if (!formData.email) {
+        setErrors({ email: "Email is required" });
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!formData.password) {
+        setErrors({ password: "Password is required" });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Toast notification to indicate login attempt is in progress
+      const loadingToastId = toast({
+        title: "Logging in...",
+        description: "Verifying your credentials",
+      });
+      
+      // Validate form data
       const validatedData = loginSchema.parse(formData);
       
+      // Attempt login
       await login(validatedData.email, validatedData.password);
       
+      // Success toast
       toast({
         title: "Login successful",
         description: "Welcome back to Whisper",
+        variant: "default",
       });
       
+      // Navigate to dashboard
       navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
+      
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
         error.errors.forEach((err) => {
@@ -76,10 +102,17 @@ export default function Login() {
         setErrors({
           server: error.message || "Login failed. Please check your credentials and try again."
         });
+        
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: error.message || "Please check your credentials and try again",
+        });
       } else {
         setErrors({
           server: "Login failed. Please check your credentials and try again."
         });
+        
         toast({
           variant: "destructive",
           title: "Login failed",
@@ -126,6 +159,7 @@ export default function Login() {
               className={errors.email ? "border-destructive" : ""}
               autoComplete="email"
               required
+              disabled={isLoading}
             />
             {errors.email && (
               <p className="text-xs text-destructive mt-1">{errors.email}</p>
@@ -149,6 +183,7 @@ export default function Login() {
               className={errors.password ? "border-destructive" : ""}
               autoComplete="current-password"
               required
+              disabled={isLoading}
             />
             {errors.password && (
               <p className="text-xs text-destructive mt-1">{errors.password}</p>
