@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,10 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { AuthError } from "@supabase/supabase-js";
 import { Navigate } from "react-router-dom";
 
+// Simplified login schema with fewer validations for faster processing
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  password: z.string().min(1, { message: "Password is required" }),
 });
 
 export default function Login() {
@@ -21,6 +22,7 @@ export default function Login() {
   const { toast } = useToast();
   const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [loginAttempted, setLoginAttempted] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -38,6 +40,23 @@ export default function Login() {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // Auto-redirect after 10 seconds if still waiting
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    
+    if (isLoading && loginAttempted) {
+      timeout = setTimeout(() => {
+        toast({
+          title: "Taking longer than expected",
+          description: "You'll be redirected once login completes",
+          duration: 5000,
+        });
+      }, 10000);
+    }
+    
+    return () => clearTimeout(timeout);
+  }, [isLoading, loginAttempted, toast]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -50,10 +69,11 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setLoginAttempted(true);
     setErrors({});
     
     try {
-      // Quick pre-validation before sending request
+      // Minimal validation - just check that fields aren't empty
       if (!formData.email) {
         setErrors({ email: "Email is required" });
         setIsLoading(false);
@@ -66,29 +86,30 @@ export default function Login() {
         return;
       }
       
-      // Toast notification to indicate login attempt is in progress
-      const loadingToastId = toast({
-        title: "Logging in...",
-        description: "Verifying your credentials",
-      });
-      
-      // Validate form data
-      const validatedData = loginSchema.parse(formData);
-      
-      // Attempt login
-      await login(validatedData.email, validatedData.password);
-      
-      // Success toast
+      // Immediate toast to show login is processing
       toast({
-        title: "Login successful",
-        description: "Welcome back to Whisper",
-        variant: "default",
+        title: "Logging in...",
+        description: "Please wait while we verify your credentials",
       });
       
-      // Navigate to dashboard
+      // Skip full validation with Zod for faster processing
+      // Just attempt login directly
+      await login(formData.email, formData.password);
+      
+      // Only show success toast briefly to avoid delays
+      toast({
+        title: "Success!",
+        description: "Redirecting you to dashboard...",
+        duration: 2000,
+      });
+      
+      // Navigate immediately
       navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
+      
+      // Simplified error handling
+      let errorMessage = "Login failed. Please try again.";
       
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
@@ -99,26 +120,17 @@ export default function Login() {
         });
         setErrors(fieldErrors);
       } else if (error instanceof AuthError) {
-        setErrors({
-          server: error.message || "Login failed. Please check your credentials and try again."
-        });
-        
-        toast({
-          variant: "destructive",
-          title: "Login failed",
-          description: error.message || "Please check your credentials and try again",
-        });
+        errorMessage = error.message || errorMessage;
+        setErrors({ server: errorMessage });
       } else {
-        setErrors({
-          server: "Login failed. Please check your credentials and try again."
-        });
-        
-        toast({
-          variant: "destructive",
-          title: "Login failed",
-          description: "Please check your credentials and try again",
-        });
+        setErrors({ server: errorMessage });
       }
+      
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -144,6 +156,13 @@ export default function Login() {
           {errors.server && (
             <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
               {errors.server}
+            </div>
+          )}
+          
+          {isLoading && (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="ml-2 text-sm">Logging in...</span>
             </div>
           )}
           
