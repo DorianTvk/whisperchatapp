@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,6 +32,7 @@ import {
   Badge as BadgeIcon
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import NewChatButton from "./NewChatButton";
 
 export default function ChatSidebar() {
   const location = useLocation();
@@ -52,7 +52,6 @@ export default function ChatSidebar() {
   const [showAllFriends, setShowAllFriends] = useState(true); // Show all friends by default
 
   useEffect(() => {
-    // Filter contacts and ais based on search query
     if (searchQuery) {
       setFilteredContacts(
         contacts.filter((contact) =>
@@ -67,7 +66,6 @@ export default function ChatSidebar() {
         )
       );
       
-      // Filter friends
       if (user) {
         const friends = contacts.filter(contact => 
           user.friends.includes(contact.id) && 
@@ -76,14 +74,12 @@ export default function ChatSidebar() {
         setFilteredFriends(friends);
       }
 
-      // Always show all items when searching
       setShowAllAis(true);
       setShowAllFriends(true);
     } else {
       setFilteredContacts(contacts);
       setFilteredAis(ais);
       
-      // Set friends
       if (user) {
         const friends = contacts.filter(contact => user.friends.includes(contact.id));
         setFilteredFriends(friends);
@@ -91,10 +87,8 @@ export default function ChatSidebar() {
     }
   }, [searchQuery, contacts, ais, user]);
 
-  // Determine if we're in a chat page
   const isInChatPage = location.pathname.includes('/chat/') || location.pathname.includes('/ai/');
-  
-  // Auto-select the appropriate tab based on current route
+
   useEffect(() => {
     if (location.pathname.includes('/chat/')) {
       setCurrentTab("chats");
@@ -118,7 +112,6 @@ export default function ChatSidebar() {
         description: "The contact has been removed from your friends list"
       });
       
-      // If we're on the page of the contact being deleted, navigate to dashboard
       if (location.pathname === `/chat/${contactId}`) {
         navigate("/dashboard");
       }
@@ -132,18 +125,15 @@ export default function ChatSidebar() {
     }
   };
 
-  // Function to refresh the contact and group lists
   const refreshLists = () => {
-    setSearchQuery(""); // Reset search to show all contacts/groups
+    setSearchQuery("");
   };
 
   const simulateImageUpload = () => {
-    // This would trigger a file input in a real implementation
     setImageUploadDialogOpen(true);
   };
 
   const handleImageSelected = () => {
-    // This would handle the image selection in a real implementation
     setImageUploadDialogOpen(false);
     toast({
       title: "Image selected",
@@ -153,7 +143,6 @@ export default function ChatSidebar() {
 
   return (
     <div className="h-screen flex flex-col border-r border-border/50 glass">
-      {/* Header */}
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between">
           <Link to="/dashboard">
@@ -213,7 +202,6 @@ export default function ChatSidebar() {
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative mt-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -225,7 +213,6 @@ export default function ChatSidebar() {
         </div>
       </div>
 
-      {/* Tabs */}
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="grid grid-cols-3 m-2">
           <TabsTrigger value="chats">
@@ -492,7 +479,6 @@ export default function ChatSidebar() {
         </TabsContent>
       </Tabs>
 
-      {/* Bottom Section - only shown when not in a chat page on mobile */}
       {!isInChatPage && (
         <>
           <Separator />
@@ -507,7 +493,6 @@ export default function ChatSidebar() {
         </>
       )}
 
-      {/* Delete Contact Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
           <DialogTitle>Remove Contact</DialogTitle>
@@ -529,7 +514,6 @@ export default function ChatSidebar() {
         </DialogContent>
       </Dialog>
 
-      {/* Image Upload Dialog (Mock) */}
       <Dialog open={imageUploadDialogOpen} onOpenChange={setImageUploadDialogOpen}>
         <DialogContent>
           <DialogTitle>Select an Image</DialogTitle>

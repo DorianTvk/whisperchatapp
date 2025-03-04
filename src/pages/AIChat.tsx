@@ -1,6 +1,5 @@
-
 import { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -70,7 +69,6 @@ const AI_PERSONALITY_TRAITS = {
   }
 };
 
-// Common AI response templates for different types of queries
 const RESPONSE_TEMPLATES = {
   factual: [
     "Based on my knowledge, {fact}. This is important because {reason}.",
@@ -102,6 +100,7 @@ const RESPONSE_TEMPLATES = {
 export default function AIChat() {
   const { aiId } = useParams<{ aiId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user, ais } = useAuth();
   
@@ -116,15 +115,30 @@ export default function AIChat() {
   
   const ai = ais.find(a => a.id === aiId);
 
+  const isNewChat = new URLSearchParams(location.search).get('new') === 'true';
+
   useEffect(() => {
     if (!ai) {
       navigate("/dashboard");
       return;
     }
-  }, [aiId, navigate, ai]);
+
+    if (isNewChat) {
+      const startNewChat = async () => {
+        await deleteChat();
+        navigate(`/ai/${aiId}`, { replace: true });
+        setFirstMessage(true);
+        toast({
+          title: "New conversation started",
+          description: `You're now chatting with ${ai.name}`
+        });
+      };
+      
+      startNewChat();
+    }
+  }, [aiId, navigate, ai, isNewChat, deleteChat]);
 
   useEffect(() => {
-    // Filter messages based on search text
     if (searchText) {
       setFilteredMessages(
         messages.filter(msg => 
@@ -137,7 +151,6 @@ export default function AIChat() {
   }, [searchText, messages]);
 
   useEffect(() => {
-    // Scroll to bottom when messages change (if not searching)
     if (scrollAreaRef.current && !searchText) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
@@ -147,13 +160,10 @@ export default function AIChat() {
   }, [filteredMessages, searchText, isTyping]);
 
   useEffect(() => {
-    // Send welcome message if this is the first time chatting with this AI
-    if (ai && messages.length === 0 && firstMessage) {
+    if (ai && (messages.length === 0) && firstMessage) {
       setFirstMessage(false);
-      // Create a mock AI welcome message
       const mockAiResponse = generateWelcomeMessage(ai);
       setTimeout(() => {
-        // Create AI message
         const mockMessage: MessageType = {
           id: `msg_${Date.now()}`,
           chatId: ai.id,
@@ -166,7 +176,6 @@ export default function AIChat() {
           isOwnMessage: false
         };
         
-        // Send it
         sendMessage(mockAiResponse, undefined, mockMessage);
       }, 1000);
     }
@@ -198,18 +207,14 @@ export default function AIChat() {
   const handleSendMessage = (content: string) => {
     if (!user || !ai) return;
     
-    // Send user message
     sendMessage(content);
     
-    // Show typing indicator
     setIsTyping(true);
     
-    // Simulate AI response
-    const responseTime = Math.floor(Math.random() * 500) + 1000; // Between 1-1.5 seconds
+    const responseTime = Math.floor(Math.random() * 500) + 1000;
     setTimeout(() => {
       const aiResponse = generateAIResponse(content, ai);
       
-      // Create a mock AI response message
       const mockMessage: MessageType = {
         id: `msg_${Date.now() + 1}`,
         chatId: ai.id,
@@ -222,7 +227,6 @@ export default function AIChat() {
         isOwnMessage: false
       };
       
-      // Send the AI message
       sendMessage(aiResponse, undefined, mockMessage);
       setIsTyping(false);
     }, responseTime);
@@ -236,11 +240,9 @@ export default function AIChat() {
       quirks: "provides useful information"
     };
     
-    // Select a response template based on the message type
     const templates = RESPONSE_TEMPLATES[messageType];
     const template = templates[Math.floor(Math.random() * templates.length)];
     
-    // Fill in the template with contextual information
     let response = "";
     
     switch (messageType) {
@@ -285,17 +287,14 @@ export default function AIChat() {
         break;
     }
     
-    // Add personality-specific flair
     const personalityAddition = `\n\nAs an AI with ${aiPersonality.style} communication style, I ${Math.random() > 0.5 ? "excel at" : "specialize in"} ${aiPersonality.strengths.join(", ")}. Is there anything specific you'd like to know more about?`;
     
     return response + personalityAddition;
   };
 
   const categorizeMessage = (message: string): keyof typeof RESPONSE_TEMPLATES => {
-    // Simple heuristic to categorize the message
     const lowercaseMsg = message.toLowerCase();
     
-    // Check if it's a factual question
     if (lowercaseMsg.includes("what is") || 
         lowercaseMsg.includes("who is") || 
         lowercaseMsg.includes("when did") || 
@@ -304,7 +303,6 @@ export default function AIChat() {
       return "factual";
     }
     
-    // Check if it's an opinion question
     if (lowercaseMsg.includes("do you think") || 
         lowercaseMsg.includes("what do you believe") || 
         lowercaseMsg.includes("your opinion") || 
@@ -313,7 +311,6 @@ export default function AIChat() {
       return "opinion";
     }
     
-    // Check if it's a creative request
     if (lowercaseMsg.includes("create") || 
         lowercaseMsg.includes("generate") || 
         lowercaseMsg.includes("write") || 
@@ -323,7 +320,6 @@ export default function AIChat() {
       return "creative";
     }
     
-    // Check if it's a technical question
     if (lowercaseMsg.includes("how to") || 
         lowercaseMsg.includes("how do") || 
         lowercaseMsg.includes("explain") || 
@@ -333,12 +329,10 @@ export default function AIChat() {
       return "technical";
     }
     
-    // If the message is very short or unclear
     if (message.split(" ").length < 3 || message.endsWith("?")) {
       return "unclear";
     }
     
-    // Default to factual for other cases
     return "factual";
   };
 
@@ -366,7 +360,6 @@ export default function AIChat() {
       ]
     };
     
-    // Determine the most likely topic based on the user message
     let relevantTopic: keyof typeof topics = "technology";
     const lowercaseMsg = userMessage.toLowerCase();
     
@@ -387,7 +380,6 @@ export default function AIChat() {
       relevantTopic = "arts";
     }
     
-    // Get a random fact from the relevant topic
     const facts = topics[relevantTopic];
     return facts[Math.floor(Math.random() * facts.length)];
   };
@@ -395,50 +387,42 @@ export default function AIChat() {
   const generateCreativeContent = (userMessage: string, ai: any) => {
     const lowercaseMsg = userMessage.toLowerCase();
     
-    // Story snippet
     if (lowercaseMsg.includes("story") || lowercaseMsg.includes("tale")) {
       return "In a world where dreams manifested as tangible objects, a young collector named Elias discovered an ancient dream hidden in his grandmother's attic. Unlike the others, this dream seemed to be aware of its surroundings...";
     }
     
-    // Poem
     if (lowercaseMsg.includes("poem") || lowercaseMsg.includes("poetry")) {
       return "Silent whispers through autumn leaves,\nTime's gentle passage as daylight grieves.\nMemories dance on the edge of sleep,\nPromises made that the stars will keep.";
     }
     
-    // Business idea
     if (lowercaseMsg.includes("business") || lowercaseMsg.includes("startup")) {
       return "A subscription service that delivers personalized plant care kits based on the specific needs of your indoor plants, including seasonal nutrients, care tools, and AI-powered monitoring to ensure your plants thrive year-round.";
     }
     
-    // Default creative response
     return "A concept for a digital garden that grows based on your daily habits and achievements. Each positive action in your life nurtures a virtual plant, creating a beautiful visual representation of your personal growth over time.";
   };
 
   const generateTechnicalExplanation = (userMessage: string, ai: any) => {
     const lowercaseMsg = userMessage.toLowerCase();
     
-    // Programming explanation
     if (lowercaseMsg.includes("code") || 
         lowercaseMsg.includes("program") || 
         lowercaseMsg.includes("develop")) {
       return "asynchronous functions in JavaScript allow operations to continue running while waiting for promises to resolve, which is crucial for handling tasks like API requests without blocking the main thread";
     }
     
-    // Science explanation
     if (lowercaseMsg.includes("science") || 
         lowercaseMsg.includes("physics") || 
         lowercaseMsg.includes("chemistry")) {
       return "quantum entanglement occurs when pairs of particles interact in ways such that the quantum state of each particle cannot be described independently of the others, regardless of the distance separating them";
     }
     
-    // Math explanation
     if (lowercaseMsg.includes("math") || 
         lowercaseMsg.includes("algorithm") || 
         lowercaseMsg.includes("calculation")) {
       return "the Fibonacci sequence has applications in numerous fields, from computer algorithms to financial markets, because its recursive pattern models many natural phenomena and optimization problems";
     }
     
-    // Default technical explanation
     return "systems designed with redundancy incorporate backup components that can take over when primary components fail, which is a fundamental principle in creating robust infrastructure for critical applications";
   };
 
@@ -450,14 +434,11 @@ export default function AIChat() {
 
   return (
     <div className="flex h-screen bg-background/50">
-      {/* Sidebar */}
       <div className="w-72 hidden md:block">
         <ChatSidebar />
       </div>
 
-      {/* Chat Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Chat Header */}
         <header className="px-4 py-3 border-b border-border/50 glass flex items-center justify-between">
           <div className="flex items-center">
             <Button 
@@ -542,32 +523,28 @@ export default function AIChat() {
           </div>
         </header>
 
-        {/* Search Bar (conditional) */}
-        {showSearch && (
-          <div className="px-4 py-2 flex items-center gap-2 border-b border-border/50 bg-background/80">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search in conversation..."
-              className="flex-1 bg-transparent border-none outline-none text-sm"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              autoFocus
-            />
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => {
-                setSearchText("");
-                setShowSearch(false);
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-border/50 bg-background/80">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search in conversation..."
+            className="flex-1 bg-transparent border-none outline-none text-sm"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            autoFocus
+          />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => {
+              setSearchText("");
+              setShowSearch(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
 
-        {/* Messages Area */}
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
           <div className="space-y-6 pb-4">
             {isLoading ? (
@@ -614,7 +591,6 @@ export default function AIChat() {
                   />
                 ))}
                 
-                {/* Typing indicator */}
                 {isTyping && (
                   <div className="flex items-center">
                     <Avatar className="h-10 w-10 mr-4">
@@ -635,11 +611,9 @@ export default function AIChat() {
           </div>
         </ScrollArea>
 
-        {/* Message Input */}
         <MessageInput onSendMessage={handleSendMessage} placeholder={`Message ${ai.name}...`} />
       </div>
 
-      {/* AI Info Dialog */}
       <Dialog open={showAiInfo} onOpenChange={setShowAiInfo}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

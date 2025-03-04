@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser, AuthError } from "@supabase/supabase-js";
@@ -83,7 +82,7 @@ const INITIAL_AIS: AI[] = [
   {
     id: "ai_1",
     name: "ChatGPT",
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg",
+    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/800px-ChatGPT_logo.svg.png",
     description: "Advanced language model by OpenAI",
     capabilities: ["Text generation", "Creative writing", "Information retrieval"],
     provider: "OpenAI",
@@ -92,7 +91,7 @@ const INITIAL_AIS: AI[] = [
   {
     id: "ai_2",
     name: "Claude",
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/1/10/Claude_%28AI%29_logo.png",
+    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Claude_%28AI%29_logo.png/800px-Claude_%28AI%29_logo.png",
     description: "Helpful AI assistant by Anthropic",
     capabilities: ["Safety", "Reasoning", "Long context"],
     provider: "Anthropic",
@@ -110,7 +109,7 @@ const INITIAL_AIS: AI[] = [
   {
     id: "ai_4",
     name: "Perplexity",
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/8/87/Perplexity_ai_logo.png",
+    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Perplexity_ai_logo.png/480px-Perplexity_ai_logo.png",
     description: "AI-powered search and discovery",
     capabilities: ["Real-time information", "Web search", "Citations"],
     provider: "Perplexity AI",
@@ -146,7 +145,7 @@ const INITIAL_AIS: AI[] = [
   {
     id: "ai_8",
     name: "Copilot",
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/4/48/Github_copilot.png",
+    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Github_copilot.png/800px-Github_copilot.png",
     description: "AI-powered coding assistant",
     capabilities: ["Code completion", "Documentation", "Technical support"],
     provider: "GitHub/Microsoft",
