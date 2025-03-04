@@ -5,7 +5,8 @@ import { useFetchMessages } from "./useFetchMessages";
 import { useMessageSubscription } from "./useMessageSubscription";
 import { useMessageActions } from "./useMessageActions";
 
-export { ChatMessage } from "@/types/message.types";
+// Use 'export type' syntax for re-exporting types with isolatedModules
+export type { ChatMessage } from "@/types/message.types";
 
 export const useMessages = (chatId: string, isAi: boolean = false) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
