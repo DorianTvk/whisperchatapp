@@ -26,7 +26,7 @@ export default function Login() {
     server: "",
   });
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - this needs to be outside any async function
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -42,49 +42,47 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Quick validation before we do any async work
+    if (!formData.email) {
+      setErrors(prev => ({ ...prev, email: "Email is required" }));
+      return;
+    }
+    
+    if (!formData.password) {
+      setErrors(prev => ({ ...prev, password: "Password is required" }));
+      return;
+    }
+    
+    // Start loading state after validation passes
     setIsLoading(true);
-    setErrors({
-      email: "",
-      password: "",
-      server: "",
-    });
+    setErrors({ email: "", password: "", server: "" });
     
     try {
-      // Basic validation
-      if (!formData.email) {
-        setErrors(prev => ({ ...prev, email: "Email is required" }));
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!formData.password) {
-        setErrors(prev => ({ ...prev, password: "Password is required" }));
-        setIsLoading(false);
-        return;
-      }
-      
-      // Attempt login
+      // Optimized login flow
       await login(formData.email, formData.password);
       
-      // Success toast
+      // Immediately navigate - don't wait for additional toasts or operations
+      navigate('/dashboard', { replace: true });
+      
+      // Show success toast after navigation has started
       toast({
         title: "Login successful",
         description: "Welcome back!",
       });
-      
-      // Navigate to dashboard immediately
-      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       
-      let errorMessage = "Login failed. Please check your credentials and try again.";
-      
-      setErrors(prev => ({ ...prev, server: errorMessage }));
+      // Simplified error handling
+      setErrors(prev => ({ 
+        ...prev, 
+        server: "Invalid credentials. Please check your email and password." 
+      }));
       
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: errorMessage,
+        description: "Please check your credentials and try again.",
       });
     } finally {
       setIsLoading(false);
@@ -92,14 +90,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 animate-fade-in">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="absolute top-4 left-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
       </div>
 
-      <div className="max-w-md w-full glass p-8 sm:p-10 rounded-xl border border-border/50 animate-scale-in">
+      <div className="max-w-md w-full glass p-8 sm:p-10 rounded-xl border border-border/50">
         <div className="space-y-2 text-center mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
@@ -111,13 +109,6 @@ export default function Login() {
           {errors.server && (
             <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
               {errors.server}
-            </div>
-          )}
-          
-          {isLoading && (
-            <div className="flex items-center justify-center py-2">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <span className="ml-2 text-sm">Logging in...</span>
             </div>
           )}
           
