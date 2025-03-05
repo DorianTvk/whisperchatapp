@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,6 +19,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import ChatSidebar from "@/components/ChatSidebar";
 import MessageInput from "@/components/MessageInput";
@@ -26,6 +28,19 @@ import { useAuth } from "@/context/auth-context";
 import { useMessages, ChatMessage as MessageType } from "@/hooks/useMessages";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, MoreVertical, Bot, Search, Info, Trash, BellOff, Sparkles, Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+// Default avatar options for AIs that don't have one
+const DEFAULT_AI_AVATARS = {
+  "ChatGPT": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1200px-ChatGPT_logo.svg.png",
+  "Claude": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Claude_logo.svg/1200px-Claude_logo.svg.png",
+  "Gemini": "https://lh3.googleusercontent.com/v0v5xzCQmF7lJMJQZd37HkKkfI6771h7jYoBQ4UHx-3E9T6XJV98ZZzOuW8L3uHMPjPdZyYzAtqrGGHf_DTxDLr3cA=w128-h128-e365-rj-sc0x00ffffff",
+  "Perplexity": "https://assets-global.website-files.com/64f6a907571f1515fb0435f2/65118ffc76c5658e3cfcca21_perplexity-logo-symbol-black.png",
+  "DeepSeek": "https://avatars.githubusercontent.com/u/140274974",
+  "Llama": "https://seeklogo.com/images/L/llama-2-logo-21E8AF4D49-seeklogo.com.png",
+  "Mistral": "https://avatars.githubusercontent.com/u/99472513",
+  "Copilot": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/GitHub_Copilot_logo.svg/1200px-GitHub_Copilot_logo.svg.png"
+};
 
 const AI_PERSONALITY_TRAITS = {
   "ChatGPT": {
@@ -112,11 +127,37 @@ export default function AIChat() {
   const [showAiInfo, setShowAiInfo] = useState(false);
   const [firstMessage, setFirstMessage] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const ai = ais.find(a => a.id === aiId);
 
   const isNewChat = new URLSearchParams(location.search).get('new') === 'true';
+
+  // Load API key if exists
+  useEffect(() => {
+    if (ai && user) {
+      const loadApiKey = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('ai_api_keys')
+            .select('api_key')
+            .eq('user_id', user.id)
+            .eq('provider', ai.provider)
+            .single();
+          
+          if (data && !error) {
+            setApiKey(data.api_key);
+          }
+        } catch (error) {
+          console.error("Error loading API key:", error);
+        }
+      };
+      
+      loadApiKey();
+    }
+  }, [ai, user]);
 
   useEffect(() => {
     if (!ai) {
@@ -170,7 +211,7 @@ export default function AIChat() {
           chatId: ai.id,
           senderId: ai.id,
           senderName: ai.name,
-          senderAvatar: ai.avatar,
+          senderAvatar: ai.avatar || DEFAULT_AI_AVATARS[ai.name] || "https://avatars.githubusercontent.com/u/124071931",
           content: mockAiResponse,
           timestamp: new Date().toISOString(),
           isRead: true,
@@ -221,7 +262,7 @@ export default function AIChat() {
         chatId: ai.id,
         senderId: ai.id,
         senderName: ai.name,
-        senderAvatar: ai.avatar,
+        senderAvatar: ai.avatar || DEFAULT_AI_AVATARS[ai.name] || "https://avatars.githubusercontent.com/u/124071931",
         content: aiResponse,
         timestamp: new Date().toISOString(),
         isRead: true,
@@ -431,6 +472,54 @@ export default function AIChat() {
     deleteMessage(messageId);
   };
 
+  const handleSaveApiKey = async () => {
+    if (!user || !ai || !apiKey.trim()) return;
+    
+    setIsSavingApiKey(true);
+    
+    try {
+      // Check if key already exists for this user and provider
+      const { data: existingKey } = await supabase
+        .from('ai_api_keys')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('provider', ai.provider)
+        .single();
+      
+      if (existingKey) {
+        // Update existing key
+        await supabase
+          .from('ai_api_keys')
+          .update({ api_key: apiKey })
+          .eq('id', existingKey.id);
+      } else {
+        // Insert new key
+        await supabase
+          .from('ai_api_keys')
+          .insert({
+            user_id: user.id,
+            provider: ai.provider,
+            api_key: apiKey
+          });
+      }
+      
+      toast({
+        title: "API key saved",
+        description: `Your ${ai.provider} API key has been saved successfully.`
+      });
+      
+    } catch (error) {
+      console.error("Error saving API key:", error);
+      toast({
+        variant: "destructive",
+        title: "Error saving API key",
+        description: "There was a problem saving your API key. Please try again."
+      });
+    } finally {
+      setIsSavingApiKey(false);
+    }
+  };
+
   if (!ai || !user) return null;
 
   return (
@@ -453,7 +542,7 @@ export default function AIChat() {
             
             <div className="flex items-center cursor-pointer" onClick={() => setShowAiInfo(true)}>
               <Avatar className="h-9 w-9">
-                <AvatarImage src={ai.avatar} alt={ai.name} />
+                <AvatarImage src={ai.avatar || DEFAULT_AI_AVATARS[ai.name]} alt={ai.name} />
                 <AvatarFallback>
                   <Bot className="h-5 w-5" />
                 </AvatarFallback>
@@ -524,27 +613,29 @@ export default function AIChat() {
           </div>
         </header>
 
-        <div className="px-4 py-2 flex items-center gap-2 border-b border-border/50 bg-background/80">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search in conversation..."
-            className="flex-1 bg-transparent border-none outline-none text-sm"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            autoFocus
-          />
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => {
-              setSearchText("");
-              setShowSearch(false);
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
+        {showSearch && (
+          <div className="px-4 py-2 flex items-center gap-2 border-b border-border/50 bg-background/80">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search in conversation..."
+              className="flex-1 bg-transparent border-none outline-none text-sm"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              autoFocus
+            />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setSearchText("");
+                setShowSearch(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
 
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
           <div className="space-y-6 pb-4">
@@ -560,7 +651,7 @@ export default function AIChat() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] p-4 text-center">
                   <Avatar className="h-16 w-16 mb-4">
-                    <AvatarImage src={ai.avatar} alt={ai.name} />
+                    <AvatarImage src={ai.avatar || DEFAULT_AI_AVATARS[ai.name]} alt={ai.name} />
                     <AvatarFallback>
                       <Bot className="h-8 w-8" />
                     </AvatarFallback>
@@ -595,7 +686,7 @@ export default function AIChat() {
                 {isTyping && (
                   <div className="flex items-center">
                     <Avatar className="h-10 w-10 mr-4">
-                      <AvatarImage src={ai.avatar} alt={ai.name} />
+                      <AvatarImage src={ai.avatar || DEFAULT_AI_AVATARS[ai.name]} alt={ai.name} />
                       <AvatarFallback>
                         <Bot className="h-5 w-5" />
                       </AvatarFallback>
@@ -626,7 +717,7 @@ export default function AIChat() {
           
           <div className="flex flex-col items-center gap-4 py-4">
             <Avatar className="h-24 w-24">
-              <AvatarImage src={ai.avatar} alt={ai.name} />
+              <AvatarImage src={ai.avatar || DEFAULT_AI_AVATARS[ai.name]} alt={ai.name} />
               <AvatarFallback>
                 <Bot className="h-12 w-12" />
               </AvatarFallback>
@@ -675,7 +766,7 @@ export default function AIChat() {
               <div className="mt-6">
                 <h4 className="text-sm font-medium mb-2">API Key Configuration</h4>
                 <p className="text-xs text-muted-foreground mb-2">
-                  To enhance this AI's capabilities, you can connect it to an API provider
+                  To enhance this AI's capabilities, connect it to the {ai.provider} API
                 </p>
                 <div className="space-y-2">
                   <div className="flex flex-col space-y-1">
@@ -685,8 +776,21 @@ export default function AIChat() {
                         id="api-key" 
                         type="password" 
                         placeholder="Enter your API key"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
                       />
-                      <Button size="sm">Save</Button>
+                      <Button 
+                        size="sm" 
+                        onClick={handleSaveApiKey}
+                        disabled={isSavingApiKey || !apiKey.trim()}
+                      >
+                        {isSavingApiKey ? (
+                          <span className="flex items-center gap-1">
+                            <span className="h-3 w-3 border-2 border-background border-t-transparent rounded-full animate-spin"></span>
+                            Saving
+                          </span>
+                        ) : "Save"}
+                      </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       This key will be stored securely and used only for this AI
@@ -695,7 +799,7 @@ export default function AIChat() {
                 </div>
               </div>
               
-              <div className="flex gap-2 pt-6">
+              <DialogFooter className="flex gap-2 pt-6">
                 <Button 
                   variant="outline" 
                   onClick={() => {
@@ -705,12 +809,13 @@ export default function AIChat() {
                   }}
                   className="flex-1"
                 >
+                  <Plus className="h-4 w-4 mr-2" />
                   New Chat
                 </Button>
                 <Button onClick={() => setShowAiInfo(false)} className="flex-1">
                   Close
                 </Button>
-              </div>
+              </DialogFooter>
             </div>
           </div>
         </DialogContent>

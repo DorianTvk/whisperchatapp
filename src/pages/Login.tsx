@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ export default function Login() {
     server: "",
   });
 
-  // Redirect if already authenticated - this needs to be outside any async function
+  // Redirect if already authenticated - this must be at the component level
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -43,7 +43,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Quick validation before we do any async work
+    // Fast validation before we do any async work
     if (!formData.email) {
       setErrors(prev => ({ ...prev, email: "Email is required" }));
       return;
@@ -54,18 +54,18 @@ export default function Login() {
       return;
     }
     
-    // Start loading state after validation passes
-    setIsLoading(true);
+    // Clear previous errors
     setErrors({ email: "", password: "", server: "" });
+    setIsLoading(true);
     
     try {
-      // Optimized login flow
-      await login(formData.email, formData.password);
+      // Most optimized login flow
+      const result = await login(formData.email, formData.password);
       
-      // Immediately navigate - don't wait for additional toasts or operations
+      // Immediately redirect - don't wait for toasts or other operations
       navigate('/dashboard', { replace: true });
       
-      // Show success toast after navigation has started
+      // Optional success toast - happens after navigation starts
       toast({
         title: "Login successful",
         description: "Welcome back!",
@@ -73,7 +73,7 @@ export default function Login() {
     } catch (error) {
       console.error("Login error:", error);
       
-      // Simplified error handling
+      // Simple error handling
       setErrors(prev => ({ 
         ...prev, 
         server: "Invalid credentials. Please check your email and password." 
