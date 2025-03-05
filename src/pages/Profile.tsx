@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,8 @@ import { useAuth } from "@/context/auth-context";
 import ChatSidebar from "@/components/ChatSidebar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, User, Shield, Bell, LogOut, KeyRound, Trash, Save, Loader2, Camera, Check } from "lucide-react";
+import { ArrowLeft, User, Shield, Bell, LogOut, KeyRound, Trash, Save, Loader2, Camera, Check, Palette } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 // Default avatar options
 const AVATAR_OPTIONS = [
@@ -29,12 +29,13 @@ export default function Profile() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, logout, updateProfile, updateAvatar } = useAuth();
+  const { theme, setTheme } = useTheme();
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+  const [selectedAvatar, setSelectedAvatar] = useState(null);
   const [customAvatarUrl, setCustomAvatarUrl] = useState("");
   const [isAvatarLoading, setIsAvatarLoading] = useState(false);
   
@@ -61,7 +62,7 @@ export default function Profile() {
     }
   }, [user]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -69,7 +70,7 @@ export default function Profile() {
     }));
   };
 
-  const handleNotificationChange = (key: keyof typeof formData.notificationSettings, checked: boolean) => {
+  const handleNotificationChange = (key, checked) => {
     setFormData(prev => ({
       ...prev,
       notificationSettings: {
@@ -209,7 +210,7 @@ export default function Profile() {
         <div className="flex-1 overflow-auto p-6 animate-fade-in">
           <div className="max-w-3xl mx-auto">
             <Tabs defaultValue="account" className="w-full">
-              <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
+              <TabsList className="grid grid-cols-4 w-full max-w-md mb-8">
                 <TabsTrigger value="account">
                   <User className="h-4 w-4 mr-2" /> Account
                 </TabsTrigger>
@@ -218,6 +219,9 @@ export default function Profile() {
                 </TabsTrigger>
                 <TabsTrigger value="notifications">
                   <Bell className="h-4 w-4 mr-2" /> Notifications
+                </TabsTrigger>
+                <TabsTrigger value="appearance">
+                  <Palette className="h-4 w-4 mr-2" /> Appearance
                 </TabsTrigger>
               </TabsList>
 
@@ -497,6 +501,66 @@ export default function Profile() {
                       )}
                     </Button>
                   </CardFooter>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="appearance" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Appearance</CardTitle>
+                    <CardDescription>
+                      Customize the look and feel of the application
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium">Theme</h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div 
+                          className={`flex flex-col items-center justify-center p-4 rounded-lg border border-border/50 cursor-pointer ${theme === 'light' ? 'bg-primary/10' : ''}`}
+                          onClick={() => setTheme('light')}
+                        >
+                          <div className="h-12 w-12 rounded-full bg-background border border-border flex items-center justify-center mb-2">
+                            <div className="h-6 w-6 bg-primary rounded-full" />
+                          </div>
+                          <span className="text-sm">Light</span>
+                          {theme === 'light' && (
+                            <div className="absolute top-2 right-2">
+                              <Check className="h-4 w-4 text-primary" />
+                            </div>
+                          )}
+                        </div>
+                        <div 
+                          className={`flex flex-col items-center justify-center p-4 rounded-lg border border-border/50 cursor-pointer ${theme === 'dark' ? 'bg-primary/10' : ''}`}
+                          onClick={() => setTheme('dark')}
+                        >
+                          <div className="h-12 w-12 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center mb-2">
+                            <div className="h-6 w-6 bg-primary rounded-full" />
+                          </div>
+                          <span className="text-sm">Dark</span>
+                          {theme === 'dark' && (
+                            <div className="absolute top-2 right-2">
+                              <Check className="h-4 w-4 text-primary" />
+                            </div>
+                          )}
+                        </div>
+                        <div 
+                          className={`flex flex-col items-center justify-center p-4 rounded-lg border border-border/50 cursor-pointer ${theme === 'system' ? 'bg-primary/10' : ''}`}
+                          onClick={() => setTheme('system')}
+                        >
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-r from-background to-zinc-800 border border-border flex items-center justify-center mb-2">
+                            <div className="h-6 w-6 bg-primary rounded-full" />
+                          </div>
+                          <span className="text-sm">System</span>
+                          {theme === 'system' && (
+                            <div className="absolute top-2 right-2">
+                              <Check className="h-4 w-4 text-primary" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>

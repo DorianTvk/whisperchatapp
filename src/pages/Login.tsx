@@ -1,130 +1,85 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
-import { z } from "zod";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { AuthError } from "@supabase/supabase-js";
 import { Navigate } from "react-router-dom";
-
-// Simplified login schema with fewer validations for faster processing
-const loginSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(1, { message: "Password is required" }),
-});
 
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [loginAttempted, setLoginAttempted] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   
-  const [errors, setErrors] = useState<{
-    email?: string;
-    password?: string;
-    server?: string;
-  }>({});
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+    server: "",
+  });
 
   // Redirect if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Auto-redirect after 10 seconds if still waiting
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    
-    if (isLoading && loginAttempted) {
-      timeout = setTimeout(() => {
-        toast({
-          title: "Taking longer than expected",
-          description: "You'll be redirected once login completes",
-          duration: 5000,
-        });
-      }, 10000);
-    }
-    
-    return () => clearTimeout(timeout);
-  }, [isLoading, loginAttempted, toast]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     
-    if (errors[name as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setLoginAttempted(true);
-    setErrors({});
+    setErrors({
+      email: "",
+      password: "",
+      server: "",
+    });
     
     try {
-      // Minimal validation - just check that fields aren't empty
+      // Basic validation
       if (!formData.email) {
-        setErrors({ email: "Email is required" });
+        setErrors(prev => ({ ...prev, email: "Email is required" }));
         setIsLoading(false);
         return;
       }
       
       if (!formData.password) {
-        setErrors({ password: "Password is required" });
+        setErrors(prev => ({ ...prev, password: "Password is required" }));
         setIsLoading(false);
         return;
       }
       
-      // Immediate toast to show login is processing
-      toast({
-        title: "Logging in...",
-        description: "Please wait while we verify your credentials",
-      });
-      
-      // Skip full validation with Zod for faster processing
-      // Just attempt login directly
+      // Attempt login
       await login(formData.email, formData.password);
       
-      // Only show success toast briefly to avoid delays
+      // Success toast
       toast({
-        title: "Success!",
-        description: "Redirecting you to dashboard...",
-        duration: 2000,
+        title: "Login successful",
+        description: "Welcome back!",
       });
       
-      // Navigate immediately
+      // Navigate to dashboard immediately
       navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       
-      // Simplified error handling
-      let errorMessage = "Login failed. Please try again.";
+      let errorMessage = "Login failed. Please check your credentials and try again.";
       
-      if (error instanceof z.ZodError) {
-        const fieldErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            fieldErrors[err.path[0] as string] = err.message;
-          }
-        });
-        setErrors(fieldErrors);
-      } else if (error instanceof AuthError) {
-        errorMessage = error.message || errorMessage;
-        setErrors({ server: errorMessage });
-      } else {
-        setErrors({ server: errorMessage });
-      }
+      setErrors(prev => ({ ...prev, server: errorMessage }));
       
       toast({
         variant: "destructive",

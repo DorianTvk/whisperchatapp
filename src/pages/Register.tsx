@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,6 @@ export default function Register() {
   const { toast } = useToast();
   const { register, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   
   const [formData, setFormData] = useState({
     username: "",
@@ -33,79 +33,93 @@ export default function Register() {
     confirmPassword: "",
   });
   
-  const [errors, setErrors] = useState<{
-    username?: string;
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-    server?: string;
-  }>({});
+  const [errors, setErrors] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    server: "",
+  });
 
-  useEffect(() => {
-    console.log("Register useEffect - isAuthenticated:", isAuthenticated);
-    if (isAuthenticated || registrationSuccess) {
-      console.log("Redirecting to dashboard from Register");
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, registrationSuccess, navigate]);
+  // If already authenticated, redirect to dashboard
+  if (isAuthenticated) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     
-    if (errors[name as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrors({});
+    setErrors({
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      server: "",
+    });
     
     try {
-      const validatedData = registerSchema.parse(formData);
+      // Basic validation
+      if (formData.password !== formData.confirmPassword) {
+        setErrors(prev => ({ ...prev, confirmPassword: "Passwords do not match" }));
+        setIsLoading(false);
+        return;
+      }
       
+      // Validate with Zod
+      registerSchema.parse(formData);
+      
+      // Attempt to register
       await register(
-        validatedData.username,
-        validatedData.email,
-        validatedData.password
+        formData.username,
+        formData.email,
+        formData.password
       );
       
       toast({
         title: "Registration successful",
-        description: "Welcome to Whisper",
+        description: "Welcome to Whisper! Redirecting to dashboard...",
       });
       
-      setRegistrationSuccess(true);
-      console.log("Registration successful, navigating to dashboard");
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 500);
+      // Navigate to dashboard
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Registration error:", error);
+      
       if (error instanceof z.ZodError) {
-        const fieldErrors: Record<string, string> = {};
+        const fieldErrors = {};
         error.errors.forEach((err) => {
           if (err.path[0]) {
-            fieldErrors[err.path[0] as string] = err.message;
+            fieldErrors[err.path[0]] = err.message;
           }
         });
-        setErrors(fieldErrors);
+        setErrors(prev => ({ ...prev, ...fieldErrors }));
       } else if (error instanceof AuthError) {
         if (error.message.includes("already registered")) {
-          setErrors({
+          setErrors(prev => ({
+            ...prev,
             email: "This email is already registered. Please use another email or try logging in."
-          });
+          }));
         } else {
-          setErrors({
+          setErrors(prev => ({
+            ...prev,
             server: error.message || "Registration failed. Please try again with different information."
-          });
+          }));
         }
       } else {
-        setErrors({
+        setErrors(prev => ({
+          ...prev,
           server: "Registration failed. Please try again with different information."
-        });
+        }));
         toast({
           variant: "destructive",
           title: "Registration failed",
@@ -151,6 +165,7 @@ export default function Register() {
               className={errors.username ? "border-destructive" : ""}
               autoComplete="username"
               required
+              disabled={isLoading}
             />
             {errors.username && (
               <p className="text-xs text-destructive mt-1">{errors.username}</p>
@@ -169,6 +184,7 @@ export default function Register() {
               className={errors.email ? "border-destructive" : ""}
               autoComplete="email"
               required
+              disabled={isLoading}
             />
             {errors.email && (
               <p className="text-xs text-destructive mt-1">{errors.email}</p>
@@ -187,6 +203,7 @@ export default function Register() {
               className={errors.password ? "border-destructive" : ""}
               autoComplete="new-password"
               required
+              disabled={isLoading}
             />
             {errors.password && (
               <p className="text-xs text-destructive mt-1">{errors.password}</p>
@@ -205,6 +222,7 @@ export default function Register() {
               className={errors.confirmPassword ? "border-destructive" : ""}
               autoComplete="new-password"
               required
+              disabled={isLoading}
             />
             {errors.confirmPassword && (
               <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>
