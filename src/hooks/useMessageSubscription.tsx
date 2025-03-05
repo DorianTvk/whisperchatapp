@@ -22,7 +22,7 @@ export const useMessageSubscription = (
         schema: 'public', 
         table: 'messages',
         filter: isAi 
-          ? `sender_id=eq.${user.id} AND receiver_id=eq.${chatId} AND is_ai_chat=eq.true`
+          ? `receiver_id=eq.${chatId} AND is_ai_chat=eq.true`
           : `(sender_id=eq.${user.id} AND receiver_id=eq.${chatId}) OR (sender_id=eq.${chatId} AND receiver_id=eq.${user.id})`
       }, async (payload) => {
         const newMsg = payload.new;

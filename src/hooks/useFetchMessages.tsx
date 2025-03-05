@@ -24,11 +24,10 @@ export const useFetchMessages = (chatId: string, isAi: boolean = false) => {
           .order('timestamp', { ascending: true });
         
         if (isAi) {
-          // For AI chats, only get messages where receiver_id is the AI and is_ai_chat is true
+          // For AI chats, get messages where receiver_id is the AI and is_ai_chat is true
           query = supabase
             .from('messages')
             .select('*')
-            .eq('sender_id', user.id)
             .eq('receiver_id', chatId)
             .eq('is_ai_chat', true)
             .order('timestamp', { ascending: true });
