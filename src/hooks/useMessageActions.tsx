@@ -2,10 +2,21 @@ import { useAuth } from "@/context/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatMessage } from "@/types/message.types";
 import { useToast } from "./use-toast";
+import { v4 as uuidv4 } from "uuid";
 
 export const useMessageActions = (chatId: string, isAi: boolean = false) => {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Generate a proper UUID for mock AI messages
+  const generateProperAiId = () => {
+    // If this is a real UUID already, return it
+    if (chatId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      return chatId;
+    }
+    // Otherwise generate a proper UUID
+    return uuidv4();
+  };
 
   // Send a message
   const sendMessage = async (content: string, replyToMessage?: ChatMessage, mockMessage?: ChatMessage) => {
@@ -13,29 +24,37 @@ export const useMessageActions = (chatId: string, isAi: boolean = false) => {
     
     // If this is a mock message (for AI responses), use it directly
     if (mockMessage) {
-      // Send AI response to database
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          sender_id: chatId, // The AI is the sender
-          receiver_id: user.id,
-          content: mockMessage.content,
-          is_ai_chat: true,
-          is_read: true
-        })
-        .select()
-        .single();
+      // Generate a proper AI ID for database compatibility
+      const aiId = generateProperAiId();
       
-      if (error) {
-        console.error('Error saving AI message:', error);
+      // Send AI response to database
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            sender_id: aiId, // The AI is the sender with a proper UUID
+            receiver_id: user.id,
+            content: mockMessage.content,
+            is_ai_chat: true,
+            is_read: true
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('Error saving AI message:', error);
+          return null;
+        }
+        
+        return {
+          ...mockMessage,
+          id: data.id,
+          timestamp: data.timestamp
+        };
+      } catch (error) {
+        console.error('Error in AI message save:', error);
         return null;
       }
-      
-      return {
-        ...mockMessage,
-        id: data.id,
-        timestamp: data.timestamp
-      };
     }
     
     // Otherwise create a new user message
@@ -137,9 +156,8 @@ export const useMessageActions = (chatId: string, isAi: boolean = false) => {
         .delete();
       
       if (isAi) {
-        // For AI chats, only delete messages where receiver_id is the AI and is_ai_chat is true
+        // For AI chats, delete messages where the AI is involved and is_ai_chat is true
         query = query
-          .eq('sender_id', user.id)
           .eq('receiver_id', chatId)
           .eq('is_ai_chat', true);
       } else {

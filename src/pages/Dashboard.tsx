@@ -10,7 +10,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import ChatSidebar from "@/components/ChatSidebar";
 import { useAuth } from "@/context/auth-context";
-import { Search, MessageSquare, Bot } from "lucide-react";
+import { Search, MessageSquare, Bot, Plus } from "lucide-react";
+
+// AI Profile Pictures
+const AI_AVATARS = {
+  "ChatGPT": "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
+  "Claude": "https://images.unsplash.com/photo-1518770660439-4636190af475",
+  "Gemini": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6",
+  "Perplexity": "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
+  "DeepSeek": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5",
+  "Llama": "https://images.unsplash.com/photo-1485827404703-89b55fcc595e",
+  "Mistral": "https://images.unsplash.com/photo-1531297484001-80022131f5a1",
+  "Copilot": "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d"
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -41,7 +53,17 @@ export default function Dashboard() {
     }
   }, [searchQuery, contacts, ais]);
 
+  // Assign avatars to AIs if they don't have one
+  const enhancedAis = filteredAis.map(ai => ({
+    ...ai,
+    avatar: ai.avatar || AI_AVATARS[ai.name] || "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5"
+  }));
+
   if (!user) return null;
+
+  const startNewChat = (aiId: string) => {
+    navigate(`/ai/${aiId}?new=true`);
+  };
 
   return (
     <div className="flex h-screen bg-background/50">
@@ -73,27 +95,27 @@ export default function Dashboard() {
               />
             </div>
 
-            <Tabs defaultValue="recent">
-              <TabsList>
-                <TabsTrigger value="recent">Recent</TabsTrigger>
-                <TabsTrigger value="contacts">Contacts</TabsTrigger>
-                <TabsTrigger value="ais">AIs</TabsTrigger>
+            <Tabs defaultValue="recent" className="space-y-4">
+              <TabsList className="w-full grid grid-cols-3 gap-2">
+                <TabsTrigger value="recent" className="rounded-lg">Recent</TabsTrigger>
+                <TabsTrigger value="contacts" className="rounded-lg">Contacts</TabsTrigger>
+                <TabsTrigger value="ais" className="rounded-lg">AIs</TabsTrigger>
               </TabsList>
               
               {/* Recent Tab */}
-              <TabsContent value="recent" className="space-y-6">
-                <Card>
-                  <CardHeader>
+              <TabsContent value="recent" className="space-y-4">
+                <Card className="border-border/40">
+                  <CardHeader className="pb-2">
                     <CardTitle>Recent Chats</CardTitle>
                     <CardDescription>Your most recent conversations</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ScrollArea className="h-[400px] pr-4">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {filteredContacts.slice(0, 3).map((contact) => (
                           <div 
                             key={contact.id}
-                            className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer"
+                            className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
                             onClick={() => navigate(`/chat/${contact.id}`)}
                           >
                             <div className="flex items-center">
@@ -121,10 +143,10 @@ export default function Dashboard() {
                           </div>
                         ))}
                         
-                        {filteredAis.slice(0, 2).map((ai) => (
+                        {enhancedAis.slice(0, 2).map((ai) => (
                           <div 
                             key={ai.id}
-                            className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer"
+                            className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
                             onClick={() => navigate(`/ai/${ai.id}`)}
                           >
                             <div className="flex items-center">
@@ -141,11 +163,20 @@ export default function Dashboard() {
                                 </p>
                               </div>
                             </div>
-                            <Bot className="h-4 w-4 text-muted-foreground" />
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startNewChat(ai.id);
+                              }}
+                            >
+                              <Bot className="h-4 w-4 text-muted-foreground" />
+                            </Button>
                           </div>
                         ))}
                         
-                        {filteredContacts.length === 0 && filteredAis.length === 0 && (
+                        {filteredContacts.length === 0 && enhancedAis.length === 0 && (
                           <div className="text-center py-10">
                             <p className="text-muted-foreground">No results found for "{searchQuery}"</p>
                           </div>
@@ -157,8 +188,8 @@ export default function Dashboard() {
               </TabsContent>
               
               {/* Contacts Tab */}
-              <TabsContent value="contacts" className="space-y-6">
-                <Card>
+              <TabsContent value="contacts" className="space-y-4">
+                <Card className="border-border/40">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div>
                       <CardTitle>Contacts</CardTitle>
@@ -167,7 +198,7 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <ScrollArea className="h-[400px] pr-4">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {filteredContacts.length === 0 ? (
                           <div className="text-center py-10">
                             {searchQuery ? (
@@ -180,7 +211,7 @@ export default function Dashboard() {
                           filteredContacts.map((contact) => (
                             <div 
                               key={contact.id}
-                              className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer"
+                              className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
                               onClick={() => navigate(`/chat/${contact.id}`)}
                             >
                               <div className="flex items-center">
@@ -224,8 +255,8 @@ export default function Dashboard() {
               </TabsContent>
               
               {/* AIs Tab */}
-              <TabsContent value="ais" className="space-y-6">
-                <Card>
+              <TabsContent value="ais" className="space-y-4">
+                <Card className="border-border/40">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div>
                       <CardTitle>AI Assistants</CardTitle>
@@ -234,8 +265,8 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <ScrollArea className="h-[400px] pr-4">
-                      <div className="space-y-2">
-                        {filteredAis.length === 0 ? (
+                      <div className="space-y-3">
+                        {enhancedAis.length === 0 ? (
                           <div className="text-center py-10">
                             {searchQuery ? (
                               <p className="text-muted-foreground">No AI assistants found for "{searchQuery}"</p>
@@ -244,14 +275,14 @@ export default function Dashboard() {
                             )}
                           </div>
                         ) : (
-                          filteredAis.map((ai) => (
+                          enhancedAis.map((ai) => (
                             <div 
                               key={ai.id}
-                              className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer"
+                              className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
                               onClick={() => navigate(`/ai/${ai.id}`)}
                             >
                               <div className="flex items-center flex-1 min-w-0">
-                                <Avatar className="h-10 w-10 mr-3 shrink-0">
+                                <Avatar className="h-12 w-12 mr-3 shrink-0">
                                   <AvatarImage src={ai.avatar} alt={ai.name} />
                                   <AvatarFallback>
                                     <Bot className="h-5 w-5" />
@@ -281,16 +312,30 @@ export default function Dashboard() {
                                   </div>
                                 </div>
                               </div>
-                              <Button 
-                                variant="outline" 
-                                className="h-8 w-8 p-0 rounded-full ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/ai/${ai.id}`);
-                                }}
-                              >
-                                <Bot className="h-4 w-4" />
-                              </Button>
+                              <div className="flex gap-2 ml-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="flex items-center gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startNewChat(ai.id);
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  <span className="text-xs">New Chat</span>
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  className="h-8 w-8 p-0 rounded-full"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/ai/${ai.id}`);
+                                  }}
+                                >
+                                  <Bot className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           ))
                         )}

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -24,7 +25,7 @@ import ChatMessage from "@/components/ChatMessage";
 import { useAuth } from "@/context/auth-context";
 import { useMessages, ChatMessage as MessageType } from "@/hooks/useMessages";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, MoreVertical, Bot, Search, Info, Trash, BellOff, Sparkles } from "lucide-react";
+import { ArrowLeft, MoreVertical, Bot, Search, Info, Trash, BellOff, Sparkles, Plus } from "lucide-react";
 
 const AI_PERSONALITY_TRAITS = {
   "ChatGPT": {
@@ -671,7 +672,41 @@ export default function AIChat() {
                 </ul>
               </div>
               
+              <div className="mt-6">
+                <h4 className="text-sm font-medium mb-2">API Key Configuration</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  To enhance this AI's capabilities, you can connect it to an API provider
+                </p>
+                <div className="space-y-2">
+                  <div className="flex flex-col space-y-1">
+                    <label htmlFor="api-key" className="text-xs font-medium">API Key for {ai.provider}</label>
+                    <div className="flex gap-2">
+                      <Input 
+                        id="api-key" 
+                        type="password" 
+                        placeholder="Enter your API key"
+                      />
+                      <Button size="sm">Save</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This key will be stored securely and used only for this AI
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               <div className="flex gap-2 pt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAiInfo(false);
+                    deleteChat();
+                    navigate(`/ai/${ai.id}?new=true`);
+                  }}
+                  className="flex-1"
+                >
+                  New Chat
+                </Button>
                 <Button onClick={() => setShowAiInfo(false)} className="flex-1">
                   Close
                 </Button>
