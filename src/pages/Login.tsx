@@ -61,14 +61,14 @@ export default function Login() {
       // Login with minimal delay
       await login(formData.email, formData.password);
       
-      // Immediate navigation attempt
-      navigate('/dashboard', { replace: true });
-      
-      // Toast after navigation starts
+      // Toast after successful login
       toast({
         title: "Login successful",
         description: "Welcome back!",
       });
+      
+      // Navigate after successful login
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       
