@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { 
@@ -8,174 +9,132 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { format } from "date-fns";
-import { MoreVertical, Reply, Copy, Bookmark, Trash, UserCircle2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
-export interface Message {
-  id: string;
-  senderId: string;
-  senderName: string;
-  senderAvatar: string;
-  content: string;
-  timestamp: string;
-  isRead: boolean;
-  isOwnMessage?: boolean;
-  replyTo?: {
-    id: string;
-    senderName: string;
-    content: string;
-  };
-}
+import { ChatMessage as MessageType } from "@/hooks/useMessages";
+import { Reply, MoreVertical, Copy, Trash, Bot } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatMessageProps {
-  message: Message;
-  onReply?: (message: Message) => void;
+  message: MessageType;
   onDelete?: (messageId: string) => void;
-  onViewProfile?: (userId: string) => void;
+  onReply?: (message: MessageType) => void;
 }
 
-export default function ChatMessage({ message, onReply, onDelete, onViewProfile }: ChatMessageProps) {
-  const [showActions, setShowActions] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const navigate = useNavigate();
+export default function ChatMessage({ message, onDelete, onReply }: ChatMessageProps) {
+  const [showControls, setShowControls] = useState(false);
+  const { toast } = useToast();
   
   const formattedTime = format(new Date(message.timestamp), "h:mm a");
-  const formattedDate = format(new Date(message.timestamp), "MMM d");
-  const isToday = format(new Date(message.timestamp), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+  const isAi = message.senderName?.includes("GPT") || 
+               message.senderName?.includes("Claude") || 
+               message.senderName?.includes("Gemini") ||
+               message.senderName?.includes("Perplexity") ||
+               message.senderName?.includes("DeepSeek") ||
+               message.senderName?.includes("Llama") ||
+               message.senderName?.includes("Mistral") ||
+               message.senderName?.includes("Copilot");
   
-  const displayTime = isToday ? formattedTime : `${formattedDate}, ${formattedTime}`;
-
-  const handleViewProfile = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onViewProfile) {
-      onViewProfile(message.senderId);
-    } else {
-      navigate(`/profile/${message.senderId}`);
-    }
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(message.content);
+    toast({
+      title: "Copied to clipboard",
+      description: "Message content copied to clipboard"
+    });
   };
   
   return (
     <div 
-      className={`group flex items-start gap-3 max-w-full ${
-        message.isOwnMessage ? "flex-row-reverse ml-auto" : ""
-      }`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => !isDropdownOpen && setShowActions(false)}
+      className={`group flex ${message.isOwnMessage ? 'justify-end' : 'justify-start'}`}
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
     >
-      <div className="cursor-pointer" onClick={handleViewProfile}>
-        <Avatar className="h-8 w-8 mt-1">
-          <AvatarImage src={message.senderAvatar} alt={message.senderName} />
-          <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
+      {!message.isOwnMessage && (
+        <Avatar className="h-10 w-10 mr-4">
+          <AvatarImage src={message.senderAvatar} alt={message.senderName} isAi={isAi} />
+          <AvatarFallback isAi={isAi}>
+            {isAi ? null : message.senderName?.charAt(0)}
+          </AvatarFallback>
         </Avatar>
+      )}
+      
+      <div className={`flex flex-col max-w-[75%] ${message.isOwnMessage ? 'items-end' : 'items-start'}`}>
+        {message.replyTo && (
+          <div className={`flex items-center text-xs mb-1 ${message.isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+            <Reply className="h-3 w-3 mr-1" />
+            <span className="text-muted-foreground mr-1">Replying to {message.replyTo.senderName}:</span>
+            <span className="truncate max-w-[150px]">{message.replyTo.content}</span>
+          </div>
+        )}
+        
+        <div className="flex items-start group">
+          <div 
+            className={`rounded-lg px-4 py-2 ${
+              message.isOwnMessage 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted'
+            }`}
+          >
+            {!message.isOwnMessage && (
+              <p className="text-xs font-medium mb-1">{message.senderName}</p>
+            )}
+            <p className="whitespace-pre-wrap">{message.content}</p>
+            <p className="text-xs opacity-70 mt-1 text-right">{formattedTime}</p>
+          </div>
+          
+          {showControls && (
+            <div className={`flex items-center ${message.isOwnMessage ? 'ml-2' : 'mr-2 order-first'}`}>
+              {onReply && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => onReply(message)}
+                >
+                  <Reply className="h-4 w-4" />
+                </Button>
+              )}
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={copyToClipboard}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              
+              {message.isOwnMessage && onDelete && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem 
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => onDelete(message.id)}
+                    >
+                      <Trash className="h-4 w-4 mr-2" />
+                      Delete Message
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       
-      <div className={`flex flex-col max-w-[80%] ${message.isOwnMessage ? "items-end" : "items-start"}`}>
-        {!message.isOwnMessage && (
-          <span className="text-xs font-medium mb-1">{message.senderName}</span>
-        )}
-        
-        {/* Reply reference */}
-        {message.replyTo && (
-          <div 
-            className={`flex items-center px-3 py-1.5 mb-1 rounded-md text-xs ${
-              message.isOwnMessage 
-                ? "bg-primary/10 text-primary" 
-                : "bg-accent/50 text-accent-foreground"
-            }`}
-          >
-            <span className="font-medium mr-1">↪ {message.replyTo.senderName}:</span>
-            <span className="truncate max-w-[180px]">{message.replyTo.content}</span>
-          </div>
-        )}
-        
-        <div className="flex items-end gap-2">
-          {!message.isOwnMessage && showActions && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => onReply?.(message)}
-            >
-              <Reply className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          
-          <div 
-            className={`px-4 py-2.5 rounded-xl break-words message-in ${
-              message.isOwnMessage 
-                ? "bg-primary text-primary-foreground rounded-tr-none" 
-                : "bg-accent text-accent-foreground rounded-tl-none"
-            }`}
-          >
-            <p className="whitespace-pre-wrap text-sm">{message.content}</p>
-          </div>
-          
-          {message.isOwnMessage && showActions && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => onReply?.(message)}
-            >
-              <Reply className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-        
-        <div className={`flex items-center mt-1 text-xs text-muted-foreground ${
-          message.isOwnMessage ? "flex-row-reverse" : ""
-        }`}>
-          <span>{displayTime}</span>
-          
-          {message.isOwnMessage && (
-            <span className="mx-1">
-              {message.isRead ? "Read" : "Delivered"}
-            </span>
-          )}
-          
-          {showActions && (
-            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 rounded-full ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <MoreVertical className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align={message.isOwnMessage ? "end" : "start"} className="w-[160px]">
-                <DropdownMenuItem onClick={() => onReply?.(message)}>
-                  <Reply className="h-4 w-4 mr-2" />
-                  Reply
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy text
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Bookmark className="h-4 w-4 mr-2" />
-                  Save message
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleViewProfile}>
-                  <UserCircle2 className="h-4 w-4 mr-2" />
-                  View Profile
-                </DropdownMenuItem>
-                {message.isOwnMessage && (
-                  <DropdownMenuItem 
-                    className="text-destructive focus:text-destructive" 
-                    onClick={() => onDelete?.(message.id)}
-                  >
-                    <Trash className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
+      {message.isOwnMessage && (
+        <Avatar className="h-10 w-10 ml-4">
+          <AvatarImage src={message.senderAvatar} alt={message.senderName} />
+          <AvatarFallback>{message.senderName?.charAt(0)}</AvatarFallback>
+        </Avatar>
+      )}
     </div>
   );
 }

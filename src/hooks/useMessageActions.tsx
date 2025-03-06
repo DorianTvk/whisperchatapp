@@ -10,12 +10,7 @@ export const useMessageActions = (chatId: string, isAi: boolean = false) => {
 
   // Generate a proper UUID for mock AI messages
   const generateProperAiId = () => {
-    // If this is a real UUID already, return it
-    if (chatId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-      return chatId;
-    }
-    // Otherwise generate a proper UUID
-    return uuidv4();
+    return chatId;
   };
 
   // Send a message
@@ -32,7 +27,7 @@ export const useMessageActions = (chatId: string, isAi: boolean = false) => {
         const { data, error } = await supabase
           .from('messages')
           .insert({
-            sender_id: aiId, // The AI is the sender with a proper UUID
+            sender_id: aiId, // The AI is the sender
             receiver_id: user.id,
             content: mockMessage.content,
             is_ai_chat: true,
@@ -156,10 +151,8 @@ export const useMessageActions = (chatId: string, isAi: boolean = false) => {
         .delete();
       
       if (isAi) {
-        // For AI chats, delete messages where the AI is involved and is_ai_chat is true
-        query = query
-          .eq('receiver_id', chatId)
-          .eq('is_ai_chat', true);
+        // For AI chats, delete messages between the user and this specific AI
+        query = query.or(`sender_id.eq.${chatId},and(receiver_id.eq.${chatId},sender_id.eq.${user.id})`);
       } else {
         // For direct chats, delete messages between the two users
         query = query.or(`and(sender_id.eq.${user.id},receiver_id.eq.${chatId}),and(sender_id.eq.${chatId},receiver_id.eq.${user.id})`);

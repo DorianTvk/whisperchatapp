@@ -1,7 +1,7 @@
 
 import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
-
+import { Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const Avatar = React.forwardRef<
@@ -21,11 +21,18 @@ Avatar.displayName = AvatarPrimitive.Root.displayName
 
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image> & { fallbackIcon?: React.ReactNode }
->(({ className, fallbackIcon, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image> & { 
+    fallbackIcon?: React.ReactNode,
+    isAi?: boolean 
+  }
+>(({ className, fallbackIcon, isAi, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
     className={cn("aspect-square h-full w-full object-cover", className)}
+    onError={(e) => {
+      // If image fails to load, trigger fallback
+      e.currentTarget.style.display = 'none';
+    }}
     {...props}
   />
 ))
@@ -33,8 +40,10 @@ AvatarImage.displayName = AvatarPrimitive.Image.displayName
 
 const AvatarFallback = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback> & {
+    isAi?: boolean
+  }
+>(({ className, isAi, children, ...props }, ref) => (
   <AvatarPrimitive.Fallback
     ref={ref}
     className={cn(
@@ -42,7 +51,9 @@ const AvatarFallback = React.forwardRef<
       className
     )}
     {...props}
-  />
+  >
+    {isAi ? <Bot className="h-6 w-6" /> : children}
+  </AvatarPrimitive.Fallback>
 ))
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 

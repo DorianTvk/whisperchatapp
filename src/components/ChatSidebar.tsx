@@ -29,7 +29,8 @@ import {
   MoreVertical,
   UserX,
   User,
-  Badge as BadgeIcon
+  Badge as BadgeIcon,
+  Users
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import NewChatButton from "./NewChatButton";
@@ -215,14 +216,14 @@ export default function ChatSidebar() {
 
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="grid grid-cols-3 m-2">
-          <TabsTrigger value="chats">
+          <TabsTrigger value="chats" className="flex items-center">
             <MessageSquare className="h-4 w-4 mr-2" /> Chats
           </TabsTrigger>
-          <TabsTrigger value="ais">
+          <TabsTrigger value="ais" className="flex items-center">
             <Bot className="h-4 w-4 mr-2" /> AIs
           </TabsTrigger>
-          <TabsTrigger value="friends">
-            <User className="h-4 w-4 mr-2" /> Friends
+          <TabsTrigger value="friends" className="flex items-center">
+            <Users className="h-4 w-4 mr-2" /> Friends
           </TabsTrigger>
         </TabsList>
 

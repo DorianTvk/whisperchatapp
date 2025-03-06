@@ -26,6 +26,11 @@ export const useMessageSubscription = (
   useEffect(() => {
     if (!chatId || !user) return;
     
+    // For AI chats, build a filter based on the AI's ID or name
+    const filter = isAi 
+      ? `sender_id=eq.${chatId} OR (receiver_id=eq.${chatId} AND sender_id=eq.${user.id})`
+      : `(sender_id=eq.${user.id} AND receiver_id=eq.${chatId}) OR (sender_id=eq.${chatId} AND receiver_id=eq.${user.id})`;
+    
     // Subscribe to new messages
     const subscription = supabase
       .channel(`messages:${chatId}`)
@@ -33,9 +38,7 @@ export const useMessageSubscription = (
         event: 'INSERT', 
         schema: 'public', 
         table: 'messages',
-        filter: isAi 
-          ? `receiver_id=eq.${chatId} AND is_ai_chat=eq.true`
-          : `(sender_id=eq.${user.id} AND receiver_id=eq.${chatId}) OR (sender_id=eq.${chatId} AND receiver_id=eq.${user.id})`
+        filter: filter
       }, async (payload) => {
         const newMsg = payload.new;
         
@@ -48,13 +51,20 @@ export const useMessageSubscription = (
           senderAvatar = user.avatar;
         } else {
           // Check if this is an AI message by matching the sender_id with common AI names
-          const aiName = Object.keys(DEFAULT_AI_AVATARS).find(name => 
-            newMsg.sender_id.includes(name.toLowerCase())
-          );
-          
-          if (aiName && isAi) {
-            senderName = aiName;
-            senderAvatar = DEFAULT_AI_AVATARS[aiName];
+          if (isAi) {
+            // Find the AI name from the list of defaults
+            const aiName = Object.keys(DEFAULT_AI_AVATARS).find(name => 
+              newMsg.sender_id.toLowerCase().includes(name.toLowerCase())
+            );
+            
+            if (aiName) {
+              senderName = aiName;
+              senderAvatar = DEFAULT_AI_AVATARS[aiName];
+            } else {
+              // Use the ID as name if no match (fallback)
+              senderName = newMsg.sender_id;
+              senderAvatar = "https://avatars.githubusercontent.com/u/124071931"; // Generic AI avatar
+            }
           } else {
             // Fetch sender info from profiles for non-AI senders
             const { data: senderData } = await supabase
@@ -72,10 +82,10 @@ export const useMessageSubscription = (
         
         const formattedMsg: ChatMessage = {
           id: newMsg.id,
-          chatId: newMsg.receiver_id,
+          chatId: isAi ? chatId : newMsg.receiver_id,
           senderId: newMsg.sender_id,
           senderName: senderName,
-          senderAvatar: senderAvatar || DEFAULT_AI_AVATARS[senderName] || "",
+          senderAvatar: senderAvatar || DEFAULT_AI_AVATARS[senderName] || "https://avatars.githubusercontent.com/u/124071931",
           content: newMsg.content,
           timestamp: newMsg.timestamp,
           isRead: newMsg.is_read,
