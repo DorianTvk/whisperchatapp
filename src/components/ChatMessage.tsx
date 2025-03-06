@@ -17,9 +17,10 @@ interface ChatMessageProps {
   message: MessageType;
   onDelete?: (messageId: string) => void;
   onReply?: (message: MessageType) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
-export default function ChatMessage({ message, onDelete, onReply }: ChatMessageProps) {
+export default function ChatMessage({ message, onDelete, onReply, onViewProfile }: ChatMessageProps) {
   const [showControls, setShowControls] = useState(false);
   const { toast } = useToast();
   
@@ -48,7 +49,10 @@ export default function ChatMessage({ message, onDelete, onReply }: ChatMessageP
       onMouseLeave={() => setShowControls(false)}
     >
       {!message.isOwnMessage && (
-        <Avatar className="h-10 w-10 mr-4">
+        <Avatar 
+          className="h-10 w-10 mr-4"
+          onClick={() => onViewProfile && onViewProfile(message.senderId)}
+        >
           <AvatarImage src={message.senderAvatar} alt={message.senderName} isAi={isAi} />
           <AvatarFallback isAi={isAi}>
             {isAi ? null : message.senderName?.charAt(0)}
@@ -130,7 +134,10 @@ export default function ChatMessage({ message, onDelete, onReply }: ChatMessageP
       </div>
       
       {message.isOwnMessage && (
-        <Avatar className="h-10 w-10 ml-4">
+        <Avatar 
+          className="h-10 w-10 ml-4"
+          onClick={() => onViewProfile && onViewProfile(message.senderId)}
+        >
           <AvatarImage src={message.senderAvatar} alt={message.senderName} />
           <AvatarFallback>{message.senderName?.charAt(0)}</AvatarFallback>
         </Avatar>
