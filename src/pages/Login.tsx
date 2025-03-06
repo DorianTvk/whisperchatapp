@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,10 +25,12 @@ export default function Login() {
     server: "",
   });
 
-  // Quick return if already authenticated
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  // Effect to handle redirect after authentication
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,6 +45,9 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Reset all errors
+    setErrors({ email: "", password: "", server: "" });
+    
     // Fast client-side validation
     if (!formData.email) {
       setErrors(prev => ({ ...prev, email: "Email is required" }));
@@ -54,21 +59,17 @@ export default function Login() {
       return;
     }
     
-    setErrors({ email: "", password: "", server: "" });
     setLocalLoading(true);
     
     try {
       // Login with minimal delay
       await login(formData.email, formData.password);
       
-      // Toast after successful login
+      // Toast on success (navigation happens via the useEffect)
       toast({
         title: "Login successful",
         description: "Welcome back!",
       });
-      
-      // Navigate after successful login
-      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       
@@ -87,13 +88,18 @@ export default function Login() {
     }
   };
 
-  // Show loading state while initial auth check is happening
-  if (isLoading) {
+  // Show loading state only during initial auth check
+  if (isLoading && !localLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Immediate return if already authenticated
+  if (isAuthenticated && !isLoading) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
