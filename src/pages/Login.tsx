@@ -1,19 +1,18 @@
 
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { Navigate } from "react-router-dom";
 
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login, isAuthenticated } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+  const { login, isAuthenticated, isLoading } = useAuth();
+  const [localLoading, setLocalLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -26,7 +25,7 @@ export default function Login() {
     server: "",
   });
 
-  // Redirect if already authenticated - this must be at the component level
+  // Quick return if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -35,6 +34,7 @@ export default function Login() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     
+    // Clear field error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -43,7 +43,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Fast validation before we do any async work
+    // Fast client-side validation
     if (!formData.email) {
       setErrors(prev => ({ ...prev, email: "Email is required" }));
       return;
@@ -54,18 +54,17 @@ export default function Login() {
       return;
     }
     
-    // Clear previous errors
     setErrors({ email: "", password: "", server: "" });
-    setIsLoading(true);
+    setLocalLoading(true);
     
     try {
-      // Most optimized login flow
-      const result = await login(formData.email, formData.password);
+      // Login with minimal delay
+      await login(formData.email, formData.password);
       
-      // Immediately redirect - don't wait for toasts or other operations
+      // Immediate navigation attempt
       navigate('/dashboard', { replace: true });
       
-      // Optional success toast - happens after navigation starts
+      // Toast after navigation starts
       toast({
         title: "Login successful",
         description: "Welcome back!",
@@ -73,7 +72,6 @@ export default function Login() {
     } catch (error) {
       console.error("Login error:", error);
       
-      // Simple error handling
       setErrors(prev => ({ 
         ...prev, 
         server: "Invalid credentials. Please check your email and password." 
@@ -85,9 +83,18 @@ export default function Login() {
         description: "Please check your credentials and try again.",
       });
     } finally {
-      setIsLoading(false);
+      setLocalLoading(false);
     }
   };
+
+  // Show loading state while initial auth check is happening
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -124,7 +131,7 @@ export default function Login() {
               className={errors.email ? "border-destructive" : ""}
               autoComplete="email"
               required
-              disabled={isLoading}
+              disabled={localLoading}
             />
             {errors.email && (
               <p className="text-xs text-destructive mt-1">{errors.email}</p>
@@ -148,15 +155,15 @@ export default function Login() {
               className={errors.password ? "border-destructive" : ""}
               autoComplete="current-password"
               required
-              disabled={isLoading}
+              disabled={localLoading}
             />
             {errors.password && (
               <p className="text-xs text-destructive mt-1">{errors.password}</p>
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
+          <Button type="submit" className="w-full" disabled={localLoading}>
+            {localLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Signing in...
