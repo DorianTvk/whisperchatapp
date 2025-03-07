@@ -34,9 +34,11 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
   // Only show loader after delay to prevent unnecessary flashing
   if (isLoading && showLoader) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading your profile...</span>
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+          <span className="text-muted-foreground">Loading your profile...</span>
+        </div>
       </div>
     );
   }

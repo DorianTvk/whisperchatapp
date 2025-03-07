@@ -95,6 +95,9 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
   }
 
   /* Custom scrollbar */
@@ -113,6 +116,18 @@
 
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/30;
+  }
+  
+  /* Mobile improvements */
+  @media (max-width: 640px) {
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    
+    input, button, textarea, select {
+      font-size: 16px !important; /* Prevents zoom on iOS */
+    }
   }
 }
 
@@ -151,4 +166,20 @@
   opacity: 0;
   transform: translateY(-10px);
   transition: opacity 300ms, transform 300ms;
+}
+
+/* Mobile responsiveness helpers */
+@media (max-width: 640px) {
+  .mobile-full-height {
+    height: calc(100vh - 70px);
+  }
+  
+  .mobile-px-2 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .mobile-hidden {
+    display: none;
+  }
 }

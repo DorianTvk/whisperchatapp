@@ -13,8 +13,15 @@ export default {
 	theme: {
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: {
+				DEFAULT: '1rem',
+				sm: '2rem'
+			},
 			screens: {
+				'sm': '640px',
+				'md': '768px',
+				'lg': '1024px',
+				'xl': '1280px',
 				'2xl': '1400px'
 			}
 		},
@@ -116,6 +123,14 @@ export default {
 				'scale-out': {
 					'0%': { transform: 'scale(1)', opacity: '1' },
 					'100%': { transform: 'scale(0.95)', opacity: '0' }
+				},
+				'slide-in-from-right': {
+					'0%': { transform: 'translateX(100%)', opacity: '0' },
+					'100%': { transform: 'translateX(0)', opacity: '1' }
+				},
+				'slide-out-to-right': {
+					'0%': { transform: 'translateX(0)', opacity: '1' },
+					'100%': { transform: 'translateX(100%)', opacity: '0' }
 				}
 			},
 			animation: {
@@ -127,7 +142,9 @@ export default {
 				'slide-out': 'slide-out 0.3s ease-out',
 				'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
 				'scale-in': 'scale-in 0.2s ease-out',
-				'scale-out': 'scale-out 0.2s ease-out'
+				'scale-out': 'scale-out 0.2s ease-out',
+				'slide-in-from-right': 'slide-in-from-right 0.3s ease-out',
+				'slide-out-to-right': 'slide-out-to-right 0.3s ease-out'
 			}
 		}
 	},

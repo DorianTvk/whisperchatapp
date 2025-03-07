@@ -47,18 +47,20 @@ export default function AddContactDialog({ onContactAdded, trigger }: AddContact
       }
 
       // Add contact (which now sends a friend request)
-      await addContact(email);
+      const result = await addContact(email);
       
-      toast({
-        title: "Friend request sent",
-        description: "A friend request has been sent to this user",
-      });
-      
-      setEmail("");
-      setOpen(false);
-      
-      if (onContactAdded) {
-        onContactAdded();
+      if (result) {
+        toast({
+          title: "Friend request sent",
+          description: "A friend request has been sent to this user",
+        });
+        
+        setEmail("");
+        setOpen(false);
+        
+        if (onContactAdded) {
+          onContactAdded();
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to add contact";
@@ -86,7 +88,7 @@ export default function AddContactDialog({ onContactAdded, trigger }: AddContact
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-w-[90vw]">
         <form onSubmit={handleAddContact}>
           <DialogHeader>
             <DialogTitle>Add New Contact</DialogTitle>
@@ -118,6 +120,7 @@ export default function AddContactDialog({ onContactAdded, trigger }: AddContact
               variant="outline" 
               onClick={() => setOpen(false)}
               disabled={isLoading}
+              className="sm:mr-2"
             >
               Cancel
             </Button>
