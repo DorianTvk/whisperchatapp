@@ -15,7 +15,7 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
     if (isLoading) {
       timeout = setTimeout(() => {
         setShowLoader(true);
-      }, 200); // 200ms delay before showing loader
+      }, 500); // Increase delay before showing loader
     } else {
       setShowLoader(false);
     }
@@ -27,6 +27,7 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
 
   // Immediate redirect for unauthenticated users
   if (!isLoading && !isAuthenticated) {
+    console.log("Not authenticated, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 
@@ -35,6 +36,7 @@ export default function ProtectedRoute({ children }: { children: JSX.Element }) 
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading your profile...</span>
       </div>
     );
   }

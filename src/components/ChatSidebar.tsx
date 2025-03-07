@@ -16,10 +16,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import AddContactDialog from "@/components/AddContactDialog";
-import StatusChanger from "@/components/StatusChanger";
-import { useAuth } from "@/context/auth-context";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/auth-context";
 import { 
   Settings, 
   LogOut, 
@@ -31,16 +30,21 @@ import {
   UserX,
   User,
   Badge as BadgeIcon,
-  Users
+  Users,
+  Mail,
+  UserCheck,
+  Clock
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import AddContactDialog from "@/components/AddContactDialog";
+import StatusChanger from "@/components/StatusChanger";
 import NewChatButton from "./NewChatButton";
+import FriendRequests from "./FriendRequests";
 
 export default function ChatSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, contacts, ais, logout, removeContact } = useAuth();
+  const { user, contacts, ais, friendRequests, removeContact } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredContacts, setFilteredContacts] = useState(contacts);
@@ -50,8 +54,12 @@ export default function ChatSidebar() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [imageUploadDialogOpen, setImageUploadDialogOpen] = useState(false);
-  const [showAllAis, setShowAllAis] = useState(true); // Show all AIs by default
-  const [showAllFriends, setShowAllFriends] = useState(true); // Show all friends by default
+  const [showRequestsDialog, setShowRequestsDialog] = useState(false);
+  
+  // Count pending received requests
+  const pendingRequests = friendRequests.filter(
+    req => req.receiverId === user?.id && req.status === 'pending'
+  ).length;
 
   useEffect(() => {
     if (searchQuery) {
@@ -75,9 +83,6 @@ export default function ChatSidebar() {
         );
         setFilteredFriends(friends);
       }
-
-      setShowAllAis(true);
-      setShowAllFriends(true);
     } else {
       setFilteredContacts(contacts);
       setFilteredAis(ais);
@@ -143,6 +148,39 @@ export default function ChatSidebar() {
     });
   };
 
+  // Get request status icon/text for a contact
+  const getRequestStatusElement = (contactId: string) => {
+    // Check if this is a contact with a pending sent request
+    const sentRequest = friendRequests.find(
+      req => req.senderId === user?.id && req.receiverId === contactId && req.status === 'pending'
+    );
+    
+    if (sentRequest) {
+      return (
+        <div className="flex items-center text-xs text-muted-foreground">
+          <Clock className="h-3 w-3 mr-1" />
+          <span>Request sent</span>
+        </div>
+      );
+    }
+    
+    // Check if this is a contact with a pending received request
+    const receivedRequest = friendRequests.find(
+      req => req.receiverId === user?.id && req.senderId === contactId && req.status === 'pending'
+    );
+    
+    if (receivedRequest) {
+      return (
+        <div className="flex items-center text-xs text-blue-500">
+          <Mail className="h-3 w-3 mr-1" />
+          <span>Request received</span>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <div className="h-screen flex flex-col border-r border-border/50 glass">
       <div className="p-4 border-b border-border/50">
@@ -151,6 +189,19 @@ export default function ChatSidebar() {
             <h1 className="text-xl font-bold">Whisper</h1>
           </Link>
           <div className="flex items-center space-x-1">
+            {pendingRequests > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full relative"
+                onClick={() => setShowRequestsDialog(true)}
+              >
+                <Mail className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {pendingRequests}
+                </span>
+              </Button>
+            )}
             <StatusChanger 
               trigger={
                 <Button variant="ghost" size="icon" className="rounded-full">
@@ -189,6 +240,15 @@ export default function ChatSidebar() {
                   </div>
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowRequestsDialog(true)}>
+                  <Mail className="mr-2 h-4 w-4" />
+                  <span>Friend Requests</span>
+                  {pendingRequests > 0 && (
+                    <Badge variant="destructive" className="ml-auto">
+                      {pendingRequests}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/profile">
                     <Settings className="mr-2 h-4 w-4" />
@@ -216,14 +276,14 @@ export default function ChatSidebar() {
       </div>
 
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="w-full flex p-0 h-12">
-          <TabsTrigger value="chats" className="flex-1 rounded-none flex items-center justify-center">
+        <TabsList className="w-full grid grid-cols-3 m-2">
+          <TabsTrigger value="chats" className="flex items-center">
             <MessageSquare className="h-4 w-4 mr-2" /> Chats
           </TabsTrigger>
-          <TabsTrigger value="ais" className="flex-1 rounded-none flex items-center justify-center">
+          <TabsTrigger value="ais" className="flex items-center">
             <Bot className="h-4 w-4 mr-2" /> AIs
           </TabsTrigger>
-          <TabsTrigger value="friends" className="flex-1 rounded-none flex items-center justify-center">
+          <TabsTrigger value="friends" className="flex items-center">
             <Users className="h-4 w-4 mr-2" /> Friends
           </TabsTrigger>
         </TabsList>
@@ -256,64 +316,85 @@ export default function ChatSidebar() {
                   )}
                 </div>
               ) : (
-                filteredContacts.map((contact) => (
-                  <Link 
-                    key={contact.id} 
-                    to={`/chat/${contact.id}`}
-                    className={`flex items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
-                      location.pathname === `/chat/${contact.id}` 
-                        ? "bg-muted" 
-                        : "hover:bg-muted/50"
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <div className="relative">
-                        <Avatar className="h-8 w-8 mr-2">
-                          <AvatarImage src={contact.avatar} alt={contact.name} />
-                          <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <span 
-                          className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
-                            contact.status === "online" ? "bg-green-500" : 
-                            contact.status === "away" ? "bg-amber-500" : 
-                            contact.status === "busy" ? "bg-red-500" : "bg-slate-500"
-                          }`}
-                        />
+                filteredContacts.map((contact) => {
+                  // Skip contacts that aren't friends yet unless we're searching
+                  const isFriend = user?.friends.includes(contact.id);
+                  if (!isFriend && !searchQuery) return null;
+                  
+                  // See if there's a pending request
+                  const requestStatusElement = getRequestStatusElement(contact.id);
+                  
+                  return (
+                    <Link 
+                      key={contact.id} 
+                      to={isFriend ? `/chat/${contact.id}` : "#"}
+                      onClick={(e) => {
+                        if (!isFriend) {
+                          e.preventDefault();
+                          toast({
+                            description: "You can't chat until they accept your friend request",
+                          });
+                        }
+                      }}
+                      className={`flex items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
+                        location.pathname === `/chat/${contact.id}` 
+                          ? "bg-muted" 
+                          : "hover:bg-muted/50"
+                      } ${!isFriend ? "opacity-70 cursor-default" : ""}`}
+                    >
+                      <div className="flex items-center">
+                        <div className="relative">
+                          <Avatar className="h-8 w-8 mr-2">
+                            <AvatarImage src={contact.avatar} alt={contact.name} />
+                            <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span 
+                            className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                              contact.status === "online" ? "bg-green-500" : 
+                              contact.status === "away" ? "bg-amber-500" : 
+                              contact.status === "busy" ? "bg-red-500" : "bg-slate-500"
+                            }`}
+                          />
+                        </div>
+                        <div className="space-y-0.5">
+                          <h3 className="text-sm font-medium">{contact.name}</h3>
+                          {requestStatusElement || (
+                            <p className="text-xs text-muted-foreground truncate w-28">
+                              {contact.status === "online" ? "Online" : `Last seen ${contact.lastActive}`}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="space-y-0.5">
-                        <h3 className="text-sm font-medium">{contact.name}</h3>
-                        <p className="text-xs text-muted-foreground truncate w-28">
-                          {contact.status === "online" ? "Online" : `Last seen ${contact.lastActive}`}
-                        </p>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 hover:opacity-100"
-                          onClick={(e) => e.preventDefault()}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" side="right">
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedContactId(contact.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <UserX className="mr-2 h-4 w-4" />
-                          Remove Contact
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </Link>
-                ))
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 hover:opacity-100"
+                            onClick={(e) => e.preventDefault()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" side="right">
+                          {isFriend && (
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSelectedContactId(contact.id);
+                                setShowDeleteConfirm(true);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <UserX className="mr-2 h-4 w-4" />
+                              Remove Contact
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </Link>
+                  );
+                }).filter(Boolean) // Filter out null values
               )}
 
               {!searchQuery && (
@@ -386,14 +467,29 @@ export default function ChatSidebar() {
         <TabsContent value="friends" className="flex-1 overflow-hidden flex flex-col">
           <div className="px-2 py-1 flex items-center justify-between">
             <h2 className="text-sm font-medium">Your Friends</h2>
-            <AddContactDialog 
-              trigger={
-                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
-                  <UserPlus className="h-4 w-4" />
+            <div className="flex items-center gap-1">
+              {pendingRequests > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 rounded-full relative" 
+                  onClick={() => setShowRequestsDialog(true)}
+                >
+                  <Mail className="h-4 w-4" />
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                    {pendingRequests}
+                  </span>
                 </Button>
-              }
-              onContactAdded={refreshLists}
-            />
+              )}
+              <AddContactDialog 
+                trigger={
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                }
+                onContactAdded={refreshLists}
+              />
+            </div>
           </div>
           <div className="flex-1 px-2 overflow-auto">
             <div className="space-y-1 py-1">
@@ -495,6 +591,30 @@ export default function ChatSidebar() {
         </>
       )}
 
+      {/* Friend Request Dialog */}
+      <Dialog open={showRequestsDialog} onOpenChange={setShowRequestsDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Mail className="mr-2 h-5 w-5" />
+              Friend Requests
+            </DialogTitle>
+            <DialogDescription>
+              Manage your friend requests
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <FriendRequests />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowRequestsDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Contact Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
           <DialogTitle>Remove Contact</DialogTitle>
@@ -516,6 +636,7 @@ export default function ChatSidebar() {
         </DialogContent>
       </Dialog>
 
+      {/* Image Upload Dialog */}
       <Dialog open={imageUploadDialogOpen} onOpenChange={setImageUploadDialogOpen}>
         <DialogContent>
           <DialogTitle>Select an Image</DialogTitle>

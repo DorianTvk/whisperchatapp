@@ -4,6 +4,8 @@ import { User as SupabaseUser, AuthError } from "@supabase/supabase-js";
 
 export type UserStatus = "online" | "away" | "busy" | "offline";
 
+export type FriendRequestStatus = "pending" | "accepted" | "rejected";
+
 export interface User {
   id: string;
   username: string;
@@ -14,6 +16,8 @@ export interface User {
   bio?: string;
   createdAt: string;
   friends: string[]; // IDs of friends
+  sentRequests: string[]; // IDs of users with pending friend requests
+  receivedRequests: string[]; // IDs of users with pending friend requests
 }
 
 export interface Contact {
@@ -24,6 +28,7 @@ export interface Contact {
   status: UserStatus;
   statusMessage?: string;
   lastActive: string;
+  requestStatus?: FriendRequestStatus;
 }
 
 export interface ChatGroup {
@@ -46,6 +51,14 @@ export interface AI {
   isAvailable: boolean;
 }
 
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  status: FriendRequestStatus;
+  createdAt: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -53,6 +66,7 @@ interface AuthContextType {
   contacts: Contact[];
   groups: ChatGroup[];
   ais: AI[];
+  friendRequests: FriendRequest[];
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -64,6 +78,9 @@ interface AuthContextType {
   createGroup: (name: string, members: string[]) => Promise<ChatGroup>;
   leaveGroup: (groupId: string) => Promise<void>;
   addToGroup: (groupId: string, userId: string) => Promise<void>;
+  sendFriendRequest: (email: string) => Promise<void>;
+  acceptFriendRequest: (requestId: string) => Promise<void>;
+  rejectFriendRequest: (requestId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,7 +94,7 @@ const DEFAULT_AVATARS = [
   "https://images.unsplash.com/photo-1582562124811-c09040d0a901"
 ];
 
-// AI assistants - keeping only ChatGPT
+// AI assistants - only ChatGPT
 const INITIAL_AIS: AI[] = [
   {
     id: "ai_1",
@@ -97,6 +114,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [ais, setAis] = useState<AI[]>(INITIAL_AIS);
   const [isLoading, setIsLoading] = useState(true);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
 
   // Load and set initial auth state
   useEffect(() => {
@@ -152,6 +170,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               
               setContacts(contactsList);
               
+              // Fetch friend requests
+              await fetchFriendRequests(supaUser.id);
+              
               // Create user object
               const userData: User = {
                 id: supaUser.id,
@@ -162,7 +183,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 statusMessage: profileData.status_message,
                 bio: profileData.bio || "Hi there! I'm using Whisper.",
                 createdAt: profileData.created_at,
-                friends: friends
+                friends: friends,
+                sentRequests: [],
+                receivedRequests: []
               };
               
               setUser(userData);
@@ -251,6 +274,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             
             setContacts(contactsList);
             
+            // Fetch friend requests
+            await fetchFriendRequests(session.user.id);
+            
             // Create user object
             const userData: User = {
               id: session.user.id,
@@ -261,7 +287,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               statusMessage: profile.status_message,
               bio: profile.bio || "Hi there! I'm using Whisper.",
               createdAt: profile.created_at,
-              friends: friends
+              friends: friends,
+              sentRequests: [],
+              receivedRequests: []
             };
             
             setUser(userData);
@@ -271,6 +299,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setSupabaseUser(null);
           setContacts([]);
           setGroups([]);
+          setFriendRequests([]);
         }
       }
     );
@@ -280,6 +309,102 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       subscription.unsubscribe();
     };
   }, []);
+
+  const fetchFriendRequests = async (userId: string) => {
+    try {
+      // Fetch sent requests
+      const { data: sentRequestsData, error: sentError } = await supabase
+        .from('friend_requests')
+        .select(`
+          id,
+          sender_id,
+          receiver_id,
+          status,
+          created_at,
+          receiver:receiver_id(username, email, avatar)
+        `)
+        .eq('sender_id', userId);
+
+      // Fetch received requests
+      const { data: receivedRequestsData, error: receivedError } = await supabase
+        .from('friend_requests')
+        .select(`
+          id,
+          sender_id,
+          receiver_id,
+          status,
+          created_at,
+          sender:sender_id(username, email, avatar)
+        `)
+        .eq('receiver_id', userId);
+
+      if (sentError) console.error("Error fetching sent requests:", sentError);
+      if (receivedError) console.error("Error fetching received requests:", receivedError);
+
+      const allRequests: FriendRequest[] = [];
+      
+      if (sentRequestsData) {
+        sentRequestsData.forEach(request => {
+          allRequests.push({
+            id: request.id,
+            senderId: request.sender_id,
+            receiverId: request.receiver_id,
+            status: request.status as FriendRequestStatus,
+            createdAt: request.created_at
+          });
+        });
+      }
+      
+      if (receivedRequestsData) {
+        receivedRequestsData.forEach(request => {
+          allRequests.push({
+            id: request.id,
+            senderId: request.sender_id,
+            receiverId: request.receiver_id,
+            status: request.status as FriendRequestStatus,
+            createdAt: request.created_at
+          });
+        });
+      }
+      
+      setFriendRequests(allRequests);
+      
+      // Update the user's sent and received request lists
+      if (user) {
+        const sentRequestIds = sentRequestsData?.map(req => req.receiver_id) || [];
+        const receivedRequestIds = receivedRequestsData?.map(req => req.sender_id) || [];
+        
+        setUser({
+          ...user,
+          sentRequests: sentRequestIds,
+          receivedRequests: receivedRequestIds
+        });
+      }
+      
+      // Update contacts with request status
+      const updatedContacts = [...contacts];
+      
+      for (const contact of updatedContacts) {
+        // Check if this contact has a pending sent request
+        const sentRequest = sentRequestsData?.find(req => req.receiver_id === contact.id);
+        if (sentRequest) {
+          contact.requestStatus = sentRequest.status as FriendRequestStatus;
+          continue;
+        }
+        
+        // Check if this contact has a pending received request
+        const receivedRequest = receivedRequestsData?.find(req => req.sender_id === contact.id);
+        if (receivedRequest) {
+          contact.requestStatus = receivedRequest.status as FriendRequestStatus;
+        }
+      }
+      
+      setContacts(updatedContacts);
+      
+    } catch (error) {
+      console.error("Error in fetchFriendRequests:", error);
+    }
+  };
 
   const getRandomAvatar = () => {
     const randomIndex = Math.floor(Math.random() * DEFAULT_AVATARS.length);
@@ -429,7 +554,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      // Find user by email
+      // Find user by email (use auth.users to find the email)
       const { data: foundUsers, error: searchError } = await supabase
         .from('profiles')
         .select(`
@@ -439,58 +564,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           status,
           status_message,
           created_at,
-          users:id(email)
+          users!inner(email)
         `)
-        .eq('users.email', email)
-        .single();
+        .eq('users.email', email);
       
-      if (searchError || !foundUsers) {
+      if (searchError || !foundUsers || foundUsers.length === 0) {
         throw new Error("User not found");
       }
       
-      // Check if already a contact
-      const { data: existingContact, error: contactCheckError } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('contact_id', foundUsers.id)
-        .maybeSingle();
+      const foundUser = foundUsers[0];
       
-      if (existingContact) {
-        throw new Error("Contact already exists");
-      }
+      // Create a friend request instead of immediately adding as a contact
+      await sendFriendRequest(email);
       
-      // Add contact
-      const { error: insertError } = await supabase
-        .from('contacts')
-        .insert({
-          user_id: user.id,
-          contact_id: foundUsers.id
-        });
-      
-      if (insertError) throw insertError;
-      
-      // Create new contact object
+      // Create new contact object for the UI (with pending status)
       const newContact: Contact = {
-        id: foundUsers.id,
-        name: foundUsers.username,
+        id: foundUser.id,
+        name: foundUser.username,
         email: email,
-        avatar: foundUsers.avatar || getRandomAvatar(),
-        status: foundUsers.status as UserStatus || "offline",
-        statusMessage: foundUsers.status_message,
-        lastActive: "Never"
+        avatar: foundUser.avatar || getRandomAvatar(),
+        status: foundUser.status as UserStatus || "offline",
+        statusMessage: foundUser.status_message,
+        lastActive: "Never",
+        requestStatus: "pending"
       };
       
-      // Update contacts list
+      // Update contacts list (doesn't add to actual contacts yet, just for UI)
       const updatedContacts = [...contacts, newContact];
       setContacts(updatedContacts);
-      
-      // Update user's friends list
-      const updatedUser = {
-        ...user,
-        friends: [...user.friends, newContact.id]
-      };
-      setUser(updatedUser);
       
       return newContact;
     } catch (error) {
@@ -515,6 +616,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) throw error;
       
+      // Also remove any friend requests between these users
+      await supabase
+        .from('friend_requests')
+        .delete()
+        .or(`(sender_id.eq.${user.id}.and.receiver_id.eq.${contactId}),(sender_id.eq.${contactId}.and.receiver_id.eq.${user.id})`);
+      
       // Update contacts state
       const updatedContacts = contacts.filter(c => c.id !== contactId);
       setContacts(updatedContacts);
@@ -525,6 +632,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         friends: user.friends.filter(id => id !== contactId)
       };
       setUser(updatedUser);
+      
+      // Update friend requests state
+      const updatedRequests = friendRequests.filter(
+        req => !(req.senderId === user.id && req.receiverId === contactId) && 
+               !(req.senderId === contactId && req.receiverId === user.id)
+      );
+      setFriendRequests(updatedRequests);
     } catch (error) {
       console.error("Remove contact failed:", error);
       throw error;
@@ -692,6 +806,233 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const sendFriendRequest = async (email: string) => {
+    try {
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
+      
+      // Find user by email
+      const { data: foundUsers, error: searchError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          username,
+          users!inner(email)
+        `)
+        .eq('users.email', email);
+      
+      if (searchError || !foundUsers || foundUsers.length === 0) {
+        throw new Error("User not found");
+      }
+      
+      const receiverId = foundUsers[0].id;
+      
+      // Check if already a contact
+      const { data: existingContact, error: contactCheckError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('contact_id', receiverId)
+        .maybeSingle();
+      
+      if (existingContact) {
+        throw new Error("Already in your contacts");
+      }
+      
+      // Check if a request already exists
+      const { data: existingRequest, error: requestCheckError } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .or(`(sender_id.eq.${user.id}.and.receiver_id.eq.${receiverId}),(sender_id.eq.${receiverId}.and.receiver_id.eq.${user.id})`)
+        .maybeSingle();
+      
+      if (existingRequest) {
+        throw new Error("Friend request already exists");
+      }
+      
+      // Create friend request
+      const { data: newRequest, error: insertError } = await supabase
+        .from('friend_requests')
+        .insert({
+          sender_id: user.id,
+          receiver_id: receiverId,
+          status: 'pending'
+        })
+        .select()
+        .single();
+      
+      if (insertError) throw insertError;
+      
+      // Add to friend requests list
+      const newFriendRequest: FriendRequest = {
+        id: newRequest.id,
+        senderId: user.id,
+        receiverId: receiverId,
+        status: 'pending',
+        createdAt: newRequest.created_at
+      };
+      
+      setFriendRequests([...friendRequests, newFriendRequest]);
+      
+      // Update user's sent requests
+      setUser({
+        ...user,
+        sentRequests: [...user.sentRequests, receiverId]
+      });
+      
+    } catch (error) {
+      console.error("Send friend request failed:", error);
+      throw error;
+    }
+  };
+
+  const acceptFriendRequest = async (requestId: string) => {
+    try {
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
+      
+      // Find the request
+      const request = friendRequests.find(req => req.id === requestId);
+      if (!request) throw new Error("Friend request not found");
+      
+      // Only the receiver can accept
+      if (request.receiverId !== user.id) {
+        throw new Error("You can't accept this request");
+      }
+      
+      // Update the request status
+      const { error: updateError } = await supabase
+        .from('friend_requests')
+        .update({ status: 'accepted' })
+        .eq('id', requestId);
+      
+      if (updateError) throw updateError;
+      
+      // Add to contacts (both ways for bidirectional friendship)
+      const { error: addContactError1 } = await supabase
+        .from('contacts')
+        .insert({
+          user_id: user.id,
+          contact_id: request.senderId
+        });
+      
+      const { error: addContactError2 } = await supabase
+        .from('contacts')
+        .insert({
+          user_id: request.senderId,
+          contact_id: user.id
+        });
+      
+      if (addContactError1) throw addContactError1;
+      if (addContactError2) throw addContactError2;
+      
+      // Get the sender's profile data
+      const { data: senderProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', request.senderId)
+        .single();
+      
+      if (profileError || !senderProfile) throw new Error("Error fetching sender profile");
+      
+      // Update the friends list
+      const updatedUser = {
+        ...user,
+        friends: [...user.friends, request.senderId],
+        receivedRequests: user.receivedRequests.filter(id => id !== request.senderId)
+      };
+      setUser(updatedUser);
+      
+      // Update the friend requests
+      const updatedRequests = friendRequests.map(req => {
+        if (req.id === requestId) {
+          return { ...req, status: 'accepted' };
+        }
+        return req;
+      });
+      setFriendRequests(updatedRequests);
+      
+      // Add the sender to contacts if not already there
+      const existingContact = contacts.find(c => c.id === request.senderId);
+      if (!existingContact) {
+        const newContact: Contact = {
+          id: senderProfile.id,
+          name: senderProfile.username,
+          email: "",  // Email is protected
+          avatar: senderProfile.avatar || DEFAULT_AVATARS[0],
+          status: senderProfile.status as UserStatus || "offline",
+          statusMessage: senderProfile.status_message,
+          lastActive: senderProfile.created_at || "Never",
+          requestStatus: 'accepted'
+        };
+        
+        setContacts([...contacts, newContact]);
+      } else {
+        // Update the existing contact's request status
+        const updatedContacts = contacts.map(c => {
+          if (c.id === request.senderId) {
+            return { ...c, requestStatus: 'accepted' };
+          }
+          return c;
+        });
+        setContacts(updatedContacts);
+      }
+      
+    } catch (error) {
+      console.error("Accept friend request failed:", error);
+      throw error;
+    }
+  };
+
+  const rejectFriendRequest = async (requestId: string) => {
+    try {
+      if (!user || !supabaseUser) throw new Error("Not authenticated");
+      
+      // Find the request
+      const request = friendRequests.find(req => req.id === requestId);
+      if (!request) throw new Error("Friend request not found");
+      
+      // Only the receiver can reject
+      if (request.receiverId !== user.id) {
+        throw new Error("You can't reject this request");
+      }
+      
+      // Update the request status
+      const { error: updateError } = await supabase
+        .from('friend_requests')
+        .update({ status: 'rejected' })
+        .eq('id', requestId);
+      
+      if (updateError) throw updateError;
+      
+      // Update user's received requests
+      setUser({
+        ...user,
+        receivedRequests: user.receivedRequests.filter(id => id !== request.senderId)
+      });
+      
+      // Update the friend requests
+      const updatedRequests = friendRequests.map(req => {
+        if (req.id === requestId) {
+          return { ...req, status: 'rejected' };
+        }
+        return req;
+      });
+      setFriendRequests(updatedRequests);
+      
+      // Update any matching contact's request status
+      const updatedContacts = contacts.map(c => {
+        if (c.id === request.senderId) {
+          return { ...c, requestStatus: 'rejected' };
+        }
+        return c;
+      });
+      setContacts(updatedContacts);
+      
+    } catch (error) {
+      console.error("Reject friend request failed:", error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -701,6 +1042,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         contacts,
         groups,
         ais,
+        friendRequests,
         login,
         register,
         logout,
@@ -711,7 +1053,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         removeContact,
         createGroup,
         leaveGroup,
-        addToGroup
+        addToGroup,
+        sendFriendRequest,
+        acceptFriendRequest,
+        rejectFriendRequest
       }}
     >
       {children}

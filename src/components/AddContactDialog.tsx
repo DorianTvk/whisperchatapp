@@ -23,7 +23,7 @@ interface AddContactDialogProps {
 
 export default function AddContactDialog({ onContactAdded, trigger }: AddContactDialogProps) {
   const { toast } = useToast();
-  const { addContact } = useAuth();
+  const { addContact, user } = useAuth();
   
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -41,12 +41,17 @@ export default function AddContactDialog({ onContactAdded, trigger }: AddContact
         throw new Error("Please enter a valid email address");
       }
       
-      // Add contact
+      // Don't allow adding yourself
+      if (user && email.toLowerCase() === user.email.toLowerCase()) {
+        throw new Error("You cannot add yourself as a contact");
+      }
+
+      // Add contact (which now sends a friend request)
       await addContact(email);
       
       toast({
-        title: "Contact added",
-        description: "Contact has been added to your friends list",
+        title: "Friend request sent",
+        description: "A friend request has been sent to this user",
       });
       
       setEmail("");
@@ -120,12 +125,12 @@ export default function AddContactDialog({ onContactAdded, trigger }: AddContact
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
+                  Sending Request...
                 </>
               ) : (
                 <>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Contact
+                  Send Friend Request
                 </>
               )}
             </Button>
