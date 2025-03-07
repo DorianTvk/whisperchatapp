@@ -1,7 +1,7 @@
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser, AuthError } from "@supabase/supabase-js";
+import { findUserByEmail, sendFriendRequestSafe } from "@/integrations/supabase/userService";
 
 export type UserStatus = "online" | "away" | "busy" | "offline";
 
@@ -250,7 +250,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               .select(`
                 contact_id,
                 profiles:contact_id(id, username, avatar, status, status_message, created_at)
-              `)
+              )
               .eq('user_id', session.user.id);
             
             const friends = contactsData ? contactsData.map(item => item.contact_id) || [] : [];
@@ -555,44 +555,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      // Find user by email (use auth.users to find the email)
-      const { data: foundUsers, error: searchError } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          username,
-          avatar,
-          status,
-          status_message,
-          created_at,
-          users!inner(email)
-        `)
-        .eq('users.email', email);
+      // Don't allow adding yourself
+      if (email.toLowerCase() === user.email.toLowerCase()) {
+        throw new Error("You cannot add yourself as a contact");
+      }
+
+      // Use our safer method to send a friend request
+      const requestResult = await sendFriendRequestSafe(user.id, email);
       
-      if (searchError || !foundUsers || foundUsers.length === 0) {
+      if (!requestResult) {
+        throw new Error("Failed to send friend request");
+      }
+
+      // Get the user's profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', requestResult.receiverId)
+        .single();
+      
+      if (profileError || !profileData) {
+        console.error("Error fetching profile:", profileError);
         throw new Error("User not found");
       }
       
-      const foundUser = foundUsers[0];
-      
-      // Create a friend request instead of immediately adding as a contact
-      await sendFriendRequest(email);
-      
       // Create new contact object for the UI (with pending status)
       const newContact: Contact = {
-        id: foundUser.id,
-        name: foundUser.username,
+        id: profileData.id,
+        name: profileData.username,
         email: email,
-        avatar: foundUser.avatar || getRandomAvatar(),
-        status: foundUser.status as UserStatus || "offline",
-        statusMessage: foundUser.status_message,
+        avatar: profileData.avatar || getRandomAvatar(),
+        status: profileData.status as UserStatus || "offline",
+        statusMessage: profileData.status_message,
         lastActive: "Never",
         requestStatus: "pending"
       };
       
-      // Update contacts list (doesn't add to actual contacts yet, just for UI)
+      // Update friend requests list
+      const newFriendRequest: FriendRequest = {
+        id: requestResult.id,
+        senderId: user.id,
+        receiverId: requestResult.receiverId,
+        status: 'pending',
+        createdAt: requestResult.createdAt
+      };
+      
+      setFriendRequests([...friendRequests, newFriendRequest]);
+      
+      // Update contacts list
       const updatedContacts: Contact[] = [...contacts, newContact];
       setContacts(updatedContacts);
+      
+      // Update user's sent requests
+      setUser({
+        ...user,
+        sentRequests: [...user.sentRequests, requestResult.receiverId]
+      });
       
       return newContact;
     } catch (error) {
@@ -811,74 +829,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!user || !supabaseUser) throw new Error("Not authenticated");
       
-      // Find user by email
-      const { data: foundUsers, error: searchError } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          username,
-          users!inner(email)
-        `)
-        .eq('users.email', email);
-      
-      if (searchError || !foundUsers || foundUsers.length === 0) {
-        throw new Error("User not found");
-      }
-      
-      const receiverId = foundUsers[0].id;
-      
-      // Check if already a contact
-      const { data: existingContact, error: contactCheckError } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('contact_id', receiverId)
-        .maybeSingle();
-      
-      if (existingContact) {
-        throw new Error("Already in your contacts");
-      }
-      
-      // Check if a request already exists
-      const { data: existingRequest, error: requestCheckError } = await supabase
-        .from('friend_requests')
-        .select('*')
-        .or(`(sender_id.eq.${user.id}.and.receiver_id.eq.${receiverId}),(sender_id.eq.${receiverId}.and.receiver_id.eq.${user.id})`)
-        .maybeSingle();
-      
-      if (existingRequest) {
-        throw new Error("Friend request already exists");
-      }
-      
-      // Create friend request
-      const { data: newRequest, error: insertError } = await supabase
-        .from('friend_requests')
-        .insert({
-          sender_id: user.id,
-          receiver_id: receiverId,
-          status: 'pending'
-        })
-        .select()
-        .single();
-      
-      if (insertError) throw insertError;
-      
-      // Add to friend requests list
-      const newFriendRequest: FriendRequest = {
-        id: newRequest.id,
-        senderId: user.id,
-        receiverId: receiverId,
-        status: 'pending',
-        createdAt: newRequest.created_at
-      };
-      
-      setFriendRequests([...friendRequests, newFriendRequest]);
-      
-      // Update user's sent requests
-      setUser({
-        ...user,
-        sentRequests: [...user.sentRequests, receiverId]
-      });
+      // Use our helper function
+      await sendFriendRequestSafe(user.id, email);
       
     } catch (error) {
       console.error("Send friend request failed:", error);

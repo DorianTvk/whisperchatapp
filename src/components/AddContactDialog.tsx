@@ -108,23 +108,28 @@ export default function AddContactDialog({ onContactAdded, trigger }: AddContact
                 className={error ? "border-destructive" : ""}
                 disabled={isLoading}
                 required
+                autoComplete="off"
               />
               {error && (
                 <p className="text-xs text-destructive">{error}</p>
               )}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button 
               type="button" 
               variant="outline" 
               onClick={() => setOpen(false)}
               disabled={isLoading}
-              className="sm:mr-2"
+              className="w-full sm:w-auto sm:mr-2"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full sm:w-auto"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
