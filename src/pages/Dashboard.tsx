@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,14 +13,7 @@ import { Search, MessageSquare, Bot, Plus } from "lucide-react";
 
 // AI Profile Pictures
 const AI_AVATARS = {
-  "ChatGPT": "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
-  "Claude": "https://images.unsplash.com/photo-1518770660439-4636190af475",
-  "Gemini": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6",
-  "Perplexity": "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
-  "DeepSeek": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5",
-  "Llama": "https://images.unsplash.com/photo-1485827404703-89b55fcc595e",
-  "Mistral": "https://images.unsplash.com/photo-1531297484001-80022131f5a1",
-  "Copilot": "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d"
+  "ChatGPT": "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b"
 };
 
 export default function Dashboard() {

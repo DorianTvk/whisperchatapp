@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -215,14 +216,14 @@ export default function ChatSidebar() {
       </div>
 
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid grid-cols-3 m-2">
-          <TabsTrigger value="chats" className="flex items-center">
+        <TabsList className="w-full flex p-0 h-12">
+          <TabsTrigger value="chats" className="flex-1 rounded-none flex items-center justify-center">
             <MessageSquare className="h-4 w-4 mr-2" /> Chats
           </TabsTrigger>
-          <TabsTrigger value="ais" className="flex items-center">
+          <TabsTrigger value="ais" className="flex-1 rounded-none flex items-center justify-center">
             <Bot className="h-4 w-4 mr-2" /> AIs
           </TabsTrigger>
-          <TabsTrigger value="friends" className="flex items-center">
+          <TabsTrigger value="friends" className="flex-1 rounded-none flex items-center justify-center">
             <Users className="h-4 w-4 mr-2" /> Friends
           </TabsTrigger>
         </TabsList>

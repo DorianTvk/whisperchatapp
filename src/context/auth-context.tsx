@@ -77,7 +77,7 @@ const DEFAULT_AVATARS = [
   "https://images.unsplash.com/photo-1582562124811-c09040d0a901"
 ];
 
-// AI assistants
+// AI assistants - keeping only ChatGPT
 const INITIAL_AIS: AI[] = [
   {
     id: "ai_1",
@@ -86,69 +86,6 @@ const INITIAL_AIS: AI[] = [
     description: "Advanced language model by OpenAI",
     capabilities: ["Text generation", "Creative writing", "Information retrieval"],
     provider: "OpenAI",
-    isAvailable: true
-  },
-  {
-    id: "ai_2",
-    name: "Claude",
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Claude_%28AI%29_logo.png/800px-Claude_%28AI%29_logo.png",
-    description: "Helpful AI assistant by Anthropic",
-    capabilities: ["Safety", "Reasoning", "Long context"],
-    provider: "Anthropic",
-    isAvailable: true
-  },
-  {
-    id: "ai_3",
-    name: "Gemini",
-    avatar: "https://seeklogo.com/images/G/google-gemini-logo-78B096E9B7-seeklogo.com.png",
-    description: "Multimodal AI assistant by Google",
-    capabilities: ["Multimodal understanding", "Code generation", "Problem solving"],
-    provider: "Google",
-    isAvailable: true
-  },
-  {
-    id: "ai_4",
-    name: "Perplexity",
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Perplexity_ai_logo.png/480px-Perplexity_ai_logo.png",
-    description: "AI-powered search and discovery",
-    capabilities: ["Real-time information", "Web search", "Citations"],
-    provider: "Perplexity AI",
-    isAvailable: true
-  },
-  {
-    id: "ai_5",
-    name: "DeepSeek",
-    avatar: "https://res.cloudinary.com/crunchbase-production/image/upload/c_lpad,h_170,w_170,f_auto,b_white,q_auto:eco,dpr_1/pscugy6e2fcitnu9v6uh",
-    description: "Advanced AI for complex tasks",
-    capabilities: ["Deep reasoning", "Code generation", "Specialized knowledge"],
-    provider: "DeepSeek AI",
-    isAvailable: true
-  },
-  {
-    id: "ai_6",
-    name: "Llama",
-    avatar: "https://static.cdnlogo.com/logos/l/82/llama-language-model.svg",
-    description: "Open-source AI assistant by Meta",
-    capabilities: ["Open-source", "Customizable", "Community support"],
-    provider: "Meta",
-    isAvailable: true
-  },
-  {
-    id: "ai_7",
-    name: "Mistral",
-    avatar: "https://seeklogo.com/images/M/mistral-ai-logo-13009F56F2-seeklogo.com.png",
-    description: "Efficient and powerful language model",
-    capabilities: ["Efficiency", "Reasoning", "Technical expertise"],
-    provider: "Mistral AI",
-    isAvailable: true
-  },
-  {
-    id: "ai_8",
-    name: "Copilot",
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Github_copilot.png/800px-Github_copilot.png",
-    description: "AI-powered coding assistant",
-    capabilities: ["Code completion", "Documentation", "Technical support"],
-    provider: "GitHub/Microsoft",
     isAvailable: true
   }
 ];
