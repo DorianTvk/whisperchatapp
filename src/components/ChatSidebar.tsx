@@ -15,7 +15,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter,
+  DialogHeader
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
@@ -44,7 +51,7 @@ export default function ChatSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, contacts, ais, friendRequests, removeContact } = useAuth();
+  const { user, contacts, ais, friendRequests, removeContact, logout } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredContacts, setFilteredContacts] = useState(contacts);

@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser, AuthError } from "@supabase/supabase-js";
@@ -382,7 +383,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // Update contacts with request status
-      const updatedContacts = [...contacts];
+      const updatedContacts: Contact[] = [...contacts];
       
       for (const contact of updatedContacts) {
         // Check if this contact has a pending sent request
@@ -590,7 +591,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
       
       // Update contacts list (doesn't add to actual contacts yet, just for UI)
-      const updatedContacts = [...contacts, newContact];
+      const updatedContacts: Contact[] = [...contacts, newContact];
       setContacts(updatedContacts);
       
       return newContact;
@@ -942,9 +943,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(updatedUser);
       
       // Update the friend requests
-      const updatedRequests = friendRequests.map(req => {
+      const updatedRequests: FriendRequest[] = friendRequests.map(req => {
         if (req.id === requestId) {
-          return { ...req, status: 'accepted' };
+          return { ...req, status: 'accepted' as FriendRequestStatus };
         }
         return req;
       });
@@ -967,9 +968,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setContacts([...contacts, newContact]);
       } else {
         // Update the existing contact's request status
-        const updatedContacts = contacts.map(c => {
+        const updatedContacts: Contact[] = contacts.map(c => {
           if (c.id === request.senderId) {
-            return { ...c, requestStatus: 'accepted' };
+            return { ...c, requestStatus: 'accepted' as FriendRequestStatus };
           }
           return c;
         });
@@ -1010,18 +1011,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       // Update the friend requests
-      const updatedRequests = friendRequests.map(req => {
+      const updatedRequests: FriendRequest[] = friendRequests.map(req => {
         if (req.id === requestId) {
-          return { ...req, status: 'rejected' };
+          return { ...req, status: 'rejected' as FriendRequestStatus };
         }
         return req;
       });
       setFriendRequests(updatedRequests);
       
       // Update any matching contact's request status
-      const updatedContacts = contacts.map(c => {
+      const updatedContacts: Contact[] = contacts.map(c => {
         if (c.id === request.senderId) {
-          return { ...c, requestStatus: 'rejected' };
+          return { ...c, requestStatus: 'rejected' as FriendRequestStatus };
         }
         return c;
       });
