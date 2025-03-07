@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { ChatMessage } from "@/types/message.types";
 import { useFetchMessages } from "./useFetchMessages";
 import { useMessageSubscription } from "./useMessageSubscription";
@@ -12,10 +12,12 @@ export type { ChatMessage } from "@/types/message.types";
 export const useMessages = (chatId: string, isAi: boolean = false) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   
-  // Create a proper UUID for AI if necessary
-  const properAiId = chatId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) 
-    ? chatId 
-    : uuidv4();
+  // Create a proper UUID for AI if necessary - memoized to prevent recalculations
+  const properAiId = useMemo(() => {
+    return chatId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) 
+      ? chatId 
+      : uuidv4();
+  }, [chatId]);
   
   // Fetch initial messages
   const { messages: initialMessages, isLoading } = useFetchMessages(
@@ -23,18 +25,20 @@ export const useMessages = (chatId: string, isAi: boolean = false) => {
     isAi
   );
   
-  // Set messages once they're loaded
-  if (messages.length === 0 && initialMessages.length > 0) {
-    setMessages(initialMessages);
-  }
+  // Set messages once they're loaded - with useEffect for better control
+  useEffect(() => {
+    if (initialMessages.length > 0 && messages.length === 0) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, messages.length]);
   
-  // Subscribe to new messages
+  // Subscribe to new messages - memoized callback to prevent unnecessary resubscriptions
   useMessageSubscription(
     isAi ? properAiId : chatId, 
     isAi, 
-    (newMessage) => {
+    useCallback((newMessage) => {
       setMessages(prev => [...prev, newMessage]);
-    }
+    }, [])
   );
   
   // Message actions
@@ -43,34 +47,40 @@ export const useMessages = (chatId: string, isAi: boolean = false) => {
     isAi
   );
   
-  // Handle deleting a message from the UI
-  const handleDeleteMessage = async (messageId: string) => {
+  // Handle deleting a message from the UI - memoized to prevent function recreations
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
     const success = await deleteMessage(messageId);
     if (success) {
       // Update messages in UI
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
     }
     return success;
-  };
+  }, [deleteMessage]);
+
+  // Memoize the sendMessage wrapper to prevent unnecessary recreations
+  const handleSendMessage = useCallback(async (content: string, replyToMessage?: ChatMessage, mockMessage?: ChatMessage) => {
+    const newMessage = await sendMessage(content, replyToMessage, mockMessage);
+    if (newMessage && !mockMessage) {
+      // Only add the message to the UI if it's not a mock message (since mock messages come back through subscription)
+      setMessages(prev => [...prev, newMessage]);
+    }
+    return newMessage;
+  }, [sendMessage]);
+
+  // Memoize the deleteChat wrapper
+  const handleDeleteChat = useCallback(async () => {
+    const success = await deleteChat();
+    if (success) {
+      setMessages([]);
+    }
+    return success;
+  }, [deleteChat]);
 
   return {
     messages,
     isLoading,
-    sendMessage: async (content: string, replyToMessage?: ChatMessage, mockMessage?: ChatMessage) => {
-      const newMessage = await sendMessage(content, replyToMessage, mockMessage);
-      if (newMessage && !mockMessage) {
-        // Only add the message to the UI if it's not a mock message (since mock messages come back through subscription)
-        setMessages(prev => [...prev, newMessage]);
-      }
-      return newMessage;
-    },
+    sendMessage: handleSendMessage,
     deleteMessage: handleDeleteMessage,
-    deleteChat: async () => {
-      const success = await deleteChat();
-      if (success) {
-        setMessages([]);
-      }
-      return success;
-    }
+    deleteChat: handleDeleteChat
   };
 };

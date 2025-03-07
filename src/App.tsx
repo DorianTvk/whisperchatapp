@@ -20,18 +20,19 @@ const AIChat = lazy(() => import("./pages/AIChat"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Configure query client with optimized settings
+// Optimize query client with improved settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (replacing cacheTime which is deprecated)
+      staleTime: 10 * 60 * 1000, // 10 minutes (increased from 5)
+      gcTime: 15 * 60 * 1000, // 15 minutes (increased from 10)
+      retry: 1, // Limit retries to reduce network load
     },
   },
 });
 
-// Loading fallback component
+// Loading fallback component - optimized to be lightweight
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
